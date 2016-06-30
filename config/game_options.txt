@@ -223,7 +223,7 @@ SEC_START_BRIG
 
 ### GHOST INTERACTION ###
 ## Uncomment to let ghosts spin chairs. You may be wondering why this is a config option. Don't ask.
-#GHOST_INTERACTION
+GHOST_INTERACTION
 
 ### NON-VOCAL SILICONS ###
 ## Uncomment to stop the AI, or cyborgs, from having vocal communication.
@@ -274,7 +274,7 @@ ROUNDSTART_RACES plasmaman
 #ROUNDSTART_RACES abductor
 
 ## Races that are straight upgrades. If these are on expect powergamers to always pick them
-#ROUNDSTART_RACES skeleton
+ROUNDSTART_RACES skeleton
 #ROUNDSTART_RACES zombie
 #ROUNDSTART_RACES slime
 #ROUNDSTART_RACES pod
@@ -290,7 +290,7 @@ ASSISTANT_CAP -1
 STARLIGHT
 
 ## Uncomment to bring back old grey suit assistants instead of the now default rainbow colored assistants.
-#GREY_ASSISTANTS
+GREY_ASSISTANTS
 
 ### Midround Antag (aka Mulligan antag) config options ###
 
@@ -318,9 +318,9 @@ REACTIONARY_EXPLOSIONS
 ## Can be any number between 4 and 128, some examples are provided below.
 
 ## Default (3,7,14)
-BOMBCAP 14
+#BOMBCAP 14
 ## One 'step' up (4,8,16) (recommended if you enable REACTIONARY_EXPLOSIONS above)
-#BOMBCAP 16
+BOMBCAP 16
 ## LagHell (7,14,28)
 #BOMBCAP 28
 
