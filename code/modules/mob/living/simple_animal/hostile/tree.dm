@@ -33,21 +33,22 @@
 	maxbodytemp = 1200
 
 	faction = list("hostile")
+	deathmessage = "is hacked into pieces!"
 	loot = list(/obj/item/stack/sheet/mineral/wood)
 	gold_core_spawnable = 1
 	del_on_death = 1
 
 /mob/living/simple_animal/hostile/tree/Life()
 	..()
-	if(istype(src.loc, /turf/simulated))
-		var/turf/simulated/T = src.loc
-		if(T.air)
-			var/co2 = T.air.carbon_dioxide
+	if(istype(src.loc, /turf/open))
+		var/turf/open/T = src.loc
+		if(T.air && T.air.gases["co2"])
+			var/co2 = T.air.gases["co2"][MOLES]
 			if(co2 > 0)
 				if(prob(25))
 					var/amt = min(co2, 9)
-					T.air.carbon_dioxide -= amt
-					T.atmos_spawn_air(SPAWN_OXYGEN, amt)
+					T.air.gases["co2"][MOLES] -= amt
+					T.atmos_spawn_air("o2=[amt]")
 
 /mob/living/simple_animal/hostile/tree/AttackingTarget()
 	..()
@@ -57,10 +58,6 @@
 			C.Weaken(3)
 			C.visible_message("<span class='danger'>\The [src] knocks down \the [C]!</span>", \
 					"<span class='userdanger'>\The [src] knocks you down!</span>")
-
-/mob/living/simple_animal/hostile/tree/New()
-	..()
-	deathmessage = "[src] is hacked into pieces!"
 
 /mob/living/simple_animal/hostile/tree/festivus
 	name = "festivus pole"

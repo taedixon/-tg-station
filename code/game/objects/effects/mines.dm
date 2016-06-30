@@ -3,7 +3,6 @@
 	desc = "Better stay away from that thing."
 	density = 0
 	anchored = 1
-	layer = 3
 	icon = 'icons/obj/weapons.dmi'
 	icon_state = "uglymine"
 	var/triggered = 0
@@ -62,20 +61,20 @@
 /obj/effect/mine/gas
 	name = "oxygen mine"
 	var/gas_amount = 360
-	var/gas_type = SPAWN_OXYGEN
+	var/gas_type = "o2"
 
 /obj/effect/mine/gas/mineEffect(mob/victim)
-	atmos_spawn_air(gas_type, gas_amount)
+	atmos_spawn_air("[gas_type]=[gas_amount]")
 
 
 /obj/effect/mine/gas/plasma
 	name = "plasma mine"
-	gas_type = SPAWN_TOXINS
+	gas_type = "plasma"
 
 
 /obj/effect/mine/gas/n2o
 	name = "\improper N2O mine"
-	gas_type = SPAWN_N2O
+	gas_type = "n2o"
 
 
 /obj/effect/mine/sound
@@ -106,7 +105,7 @@
 	if(triggered)
 		return
 	triggered = 1
-	invisibility = 101
+	invisibility = INVISIBILITY_ABSTRACT
 	mineEffect(victim)
 	qdel(src)
 
@@ -133,7 +132,7 @@
 	victim.drop_r_hand()
 	victim.drop_l_hand()
 	victim.put_in_hands(chainsaw)
-	
+
 	victim.reagents.add_reagent("adminordrazine",25)
 
 	victim.client.color = pure_red
@@ -154,7 +153,7 @@
 	if(!victim.client || !istype(victim))
 		return
 	victim << "<span class='notice'>You feel great!</span>"
-	victim.revive()
+	victim.revive(full_heal = 1, admin_revive = 1)
 
 /obj/effect/mine/pickup/speed
 	name = "Yellow Orb"

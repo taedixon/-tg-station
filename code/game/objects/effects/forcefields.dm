@@ -1,7 +1,6 @@
 /obj/effect/forcefield
 	desc = "A space wizard's magic wall."
 	name = "FORCEWALL"
-	icon = 'icons/effects/effects.dmi'
 	icon_state = "m_shield"
 	anchored = 1
 	opacity = 0
@@ -28,10 +27,10 @@
 /obj/effect/forcefield/mime/New()
 	..()
 	last_process = world.time
-	SSobj.processing |= src
+	START_PROCESSING(SSobj, src)
 
 /obj/effect/forcefield/mime/process()
 	timeleft -= (world.time - last_process)
 	if(timeleft <= 0)
-		SSobj.processing.Remove(src)
+		STOP_PROCESSING(SSobj, src)
 		qdel(src)

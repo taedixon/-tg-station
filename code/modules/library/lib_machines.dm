@@ -19,12 +19,13 @@
 	icon_state = "oldcomp"
 	icon_screen = "library"
 	icon_keyboard = null
-	circuit = /obj/item/weapon/circuitboard/libraryconsole
+	circuit = /obj/item/weapon/circuitboard/computer/libraryconsole
 	var/screenstate = 0
 	var/title
 	var/category = "Any"
 	var/author
 	var/SQLquery
+	clockwork = TRUE //it'd look weird
 
 /obj/machinery/computer/libraryconsole/attack_hand(mob/user)
 	if(..())
@@ -305,7 +306,7 @@ var/global/list/datum/cachedbook/cachedbooks // List of our cached book datums
 		user << "[scanner]'s associated machine has been set to [src]."
 		audible_message("[src] lets out a low, short blip.")
 	else
-		..()
+		return ..()
 
 /obj/machinery/computer/libraryconsole/bookmanagement/emag_act(mob/user)
 	if(density && !emagged)
@@ -409,7 +410,7 @@ var/global/list/datum/cachedbook/cachedbooks // List of our cached book datums
 	if(href_list["orderbyid"])
 		var/orderid = input("Enter your order:") as num|null
 		if(orderid)
-			if(isnum(orderid))
+			if(isnum(orderid) && IsInteger(orderid))
 				href_list["targetid"] = orderid
 	if(href_list["targetid"])
 		var/sqlid = sanitizeSQL(href_list["targetid"])
@@ -457,6 +458,8 @@ var/global/list/datum/cachedbook/cachedbooks // List of our cached book datums
 		if(!user.drop_item())
 			return
 		O.loc = src
+	else
+		return ..()
 
 /obj/machinery/libraryscanner/attack_hand(mob/user)
 	usr.set_machine(src)
@@ -510,22 +513,33 @@ var/global/list/datum/cachedbook/cachedbooks // List of our cached book datums
 
 /obj/machinery/bookbinder/attackby(obj/O, mob/user, params)
 	if(istype(O, /obj/item/weapon/paper))
-		if(busy)
-			user << "<span class='warning'>The book binder is busy. Please wait for completion of previous operation.</span>"
-			return
-		if(!user.drop_item())
-			return
-		O.loc = src
-		user.visible_message("[user] loads some paper into [src].", "You load some paper into [src].")
-		src.visible_message("[src] begins to hum as it warms up its printing drums.")
-		busy = 1
-		sleep(rand(200,400))
-		busy = 0
-		src.visible_message("[src] whirs as it prints and binds a new book.")
-		var/obj/item/weapon/book/b = new(src.loc)
-		b.dat = O:info
-		b.name = "Print Job #" + "[rand(100, 999)]"
-		b.icon_state = "book[rand(1,7)]"
-		qdel(O)
+		bind_book(user, O)
+	else if(default_unfasten_wrench(user, O))
+		return 1
 	else
-		..()
+		return ..()
+
+/obj/machinery/bookbinder/proc/bind_book(mob/user, obj/item/weapon/paper/P)
+	if(stat)
+		return
+	if(busy)
+		user << "<span class='warning'>The book binder is busy. Please wait for completion of previous operation.</span>"
+		return
+	if(!user.drop_item())
+		return
+	P.loc = src
+	user.visible_message("[user] loads some paper into [src].", "You load some paper into [src].")
+	audible_message("[src] begins to hum as it warms up its printing drums.")
+	busy = 1
+	sleep(rand(200,400))
+	busy = 0
+	if(P)
+		if(!stat)
+			visible_message("[src] whirs as it prints and binds a new book.")
+			var/obj/item/weapon/book/B = new(src.loc)
+			B.dat = P.info
+			B.name = "Print Job #" + "[rand(100, 999)]"
+			B.icon_state = "book[rand(1,7)]"
+			qdel(P)
+		else
+			P.loc = loc

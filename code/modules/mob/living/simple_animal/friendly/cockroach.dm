@@ -32,7 +32,7 @@
 	if(ismob(AM))
 		if(isliving(AM))
 			var/mob/living/A = AM
-			if(A.mob_size > MOB_SIZE_TINY)
+			if(A.mob_size > MOB_SIZE_SMALL)
 				if(prob(squish_chance))
 					A.visible_message("<span class='notice'>\The [A] squashed \the [name].</span>", "<span class='notice'>You squashed \the [name].</span>")
 					death()
@@ -53,3 +53,4 @@
 	icon = 'icons/effects/blood.dmi'
 	icon_state = "xfloor1"
 	random_icon_states = list("xfloor1", "xfloor2", "xfloor3", "xfloor4", "xfloor5", "xfloor6", "xfloor7")
+	layer = ABOVE_OPEN_TURF_LAYER

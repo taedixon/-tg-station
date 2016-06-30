@@ -36,6 +36,11 @@
 			user << "<span class='warning'>You cannot glare at allies!</span>"
 			revert_cast()
 			return
+		var/mob/living/L = user
+		if(L.incorporeal_move) //Other abilities can still be used, but glare needed balancing
+			user << "<span class='warning'>You cannot glare while shadow walking!</span>"
+			revert_cast()
+			return
 		var/mob/living/carbon/human/M = target
 		user.visible_message("<span class='warning'><b>[user]'s eyes flash a blinding red!</b></span>")
 		target.visible_message("<span class='danger'>[target] freezes in place, their eyes glazing over...</span>")
@@ -123,13 +128,22 @@
 	user.SetWeakened(0)
 	user.incorporeal_move = 1
 	user.alpha = 0
+	user.ExtinguishMob()
+	var/turf/T = get_turf(user)
+	user.forceMove(T) //to properly move the mob out of a potential container
 	if(user.buckled)
-		user.buckled.unbuckle_mob()
+		user.buckled.unbuckle_mob(user,force=1)
+	if(user.pulledby)
+		user.pulledby.stop_pulling()
+	user.stop_pulling()
+	if(user.has_buckled_mobs())
+		user.unbuckle_all_mobs(force=1)
 	sleep(40) //4 seconds
-	user.visible_message("<span class='warning'>[user] suddenly manifests!</span>", "<span class='shadowling'>The rift's pressure forces you back to corporeality.</span>")
-	user.incorporeal_move = 0
-	user.alpha = 255
-
+	if(!qdeleted(user))
+		user.visible_message("<span class='warning'>[user] suddenly manifests!</span>", "<span class='shadowling'>The rift's pressure forces you back to corporeality.</span>")
+		user.incorporeal_move = 0
+		user.alpha = 255
+		user.forceMove(user.loc)
 
 /obj/effect/proc_holder/spell/aoe_turf/flashfreeze //Stuns and freezes nearby people - a bit more effective than a changeling's cryosting
 	name = "Icy Veins"
@@ -225,21 +239,21 @@
 					target.Weaken(12)
 					sleep(20)
 					if(isloyal(target))
-						user << "<span class='notice'>They are enslaved by Nanotrasen. You begin to shut down the nanobot implant - this will take some time.</span>"
+						user << "<span class='notice'>They are protected by a mindshield implant. You begin to shut down the nanobot implant - this will take some time.</span>"
 						user.visible_message("<span class='warning'>[user] pauses, then dips their head in concentration!</span>")
-						target << "<span class='boldannounce'>You feel your loyalties begin to weaken!</span>"
+						target << "<span class='boldannounce'>You feel your resolve begin to fade!</span>"
 						sleep(100) //10 seconds - not spawn() so the enthralling takes longer
-						user << "<span class='notice'>The nanobots composing the loyalty implant have been rendered inert. Now to continue.</span>"
+						user << "<span class='notice'>The nanobots composing the mindshield implant have been rendered inert. Now to continue.</span>"
 						user.visible_message("<span class='warning'>[user] relaxes again.</span>")
-						for(var/obj/item/weapon/implant/loyalty/L in target)
+						for(var/obj/item/weapon/implant/mindshield/L in target)
 							if(L && L.implanted)
 								qdel(L)
-						target << "<span class='boldannounce'>Your unwavering loyalty to Nanotrasen unexpectedly falters, dims, dies.</span>"
+						target << "<span class='boldannounce'>You feel the protection from your mindshield implant strain and fail.</span>"
 				if(3)
 					user << "<span class='notice'>You begin planting the tumor that will control the new thrall...</span>"
 					user.visible_message("<span class='warning'>A strange energy passes from [user]'s hands into [target]'s head!</span>")
 					target << "<span class='boldannounce'>You feel your memories twisting, morphing. A sense of horror dominates your mind.</span>"
-			if(!do_mob(user, target, 70)) //around 21 seconds total for enthralling, 31 for someone with a loyalty implant
+			if(!do_mob(user, target, 70)) //around 21 seconds total for enthralling, 31 for someone with a mindshield implant
 				user << "<span class='warning'>The enthralling has been interrupted - your target's mind returns to its previous state.</span>"
 				target << "<span class='userdanger'>You wrest yourself away from [user]'s hands and compose yourself</span>"
 				enthralling = 0
@@ -270,9 +284,14 @@
 	var/text = stripped_input(user, "What do you want to say your thralls and fellow shadowlings?.", "Hive Chat", "")
 	if(!text)
 		return
+	var/my_message = "<span class='shadowling'><b>\[Shadowling\]</b><i> [user.real_name]</i>: [text]</span>"
 	for(var/mob/M in mob_list)
-		if(is_shadow_or_thrall(M) || (M in dead_mob_list))
-			M << "<span class='shadowling'><b>\[Shadowling\]</b><i> [user.real_name]</i>: [text]</span>"
+		if(is_shadow_or_thrall(M))
+			M << my_message
+		if(isobserver(M))
+			var/link = FOLLOW_LINK(M, user)
+			M << "[link] [my_message]"
+
 
 
 /obj/effect/proc_holder/spell/self/shadowling_regenarmor //Resets a shadowling's species to normal, removes genetic defects, and re-equips their armor
@@ -369,7 +388,7 @@
 				if(CM in M.mind.spell_list)
 					M.mind.spell_list -= CM
 					qdel(CM)
-				M.mind.remove_spell(/obj/effect/proc_holder/spell/self/shadowling_hatch)
+				M.mind.RemoveSpell(/obj/effect/proc_holder/spell/self/shadowling_hatch)
 				M.mind.AddSpell(new /obj/effect/proc_holder/spell/self/shadowling_ascend(null))
 				if(M == user)
 					M << "<span class='shadowling'><i>You project this power to the rest of the shadowlings.</i></span>"
@@ -395,7 +414,7 @@
 	user << "<span class='shadowling'>You regurgitate a vast cloud of blinding smoke.</span>"
 	var/obj/item/weapon/reagent_containers/glass/beaker/large/B = new /obj/item/weapon/reagent_containers/glass/beaker/large(user.loc) //hacky
 	B.reagents.clear_reagents() //Just in case!
-	B.invisibility = INFINITY //This ought to do the trick
+	B.invisibility = INVISIBILITY_ABSTRACT //This ought to do the trick
 	B.reagents.add_reagent("blindness_smoke", 10)
 	var/datum/effect_system/smoke_spread/chem/S = new
 	S.attach(B)
@@ -403,30 +422,6 @@
 		S.set_up(B.reagents, 4, 0, B.loc)
 		S.start()
 	qdel(B)
-
-datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
-	name = "odd black liquid"
-	id = "blindness_smoke"
-	description = "<::ERROR::> CANNOT ANALYZE REAGENT <::ERROR::>"
-	color = "#000000" //Complete black (RGB: 0, 0, 0)
-	metabolization_rate = 100 //lel
-
-/datum/reagent/shadowling_blindness_smoke/on_mob_life(mob/living/M)
-	if(!M) M = holder.my_atom
-	if(!is_shadow_or_thrall(M))
-		M << "<span class='warning'><b>You breathe in the black smoke, and your eyes burn horribly!</b></span>"
-		M.eye_blind = 5
-		if(prob(25))
-			M.visible_message("<b>[M]</b> claws at their eyes!")
-			M.Stun(3)
-	else
-		M << "<span class='notice'><b>You breathe in the black smoke, and you feel revitalized!</b></span>"
-		M.heal_organ_damage(2,2)
-		M.adjustOxyLoss(-2)
-		M.adjustToxLoss(-2)
-	..()
-	return
-
 
 /obj/effect/proc_holder/spell/aoe_turf/unearthly_screech //Damages nearby windows, confuses nearby carbons, and outright stuns silly cones
 	name = "Sonic Screech"
@@ -466,7 +461,7 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 				sp.start()
 				S.Weaken(6)
 		for(var/obj/structure/window/W in T.contents)
-			W.hit(rand(80, 100))
+			W.take_damage(rand(80, 100))
 
 
 /obj/effect/proc_holder/spell/aoe_turf/drain_life //Deals stamina and oxygen damage to nearby humans and heals the shadowling. On a short cooldown because of the small range and situational usefulness
@@ -536,6 +531,10 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 					user << "<span class='warning'>[thrallToRevive] must be conscious to become empowered.</span>"
 					revert_cast()
 					return
+				if(thrallToRevive.dna.species.id == "l_shadowling")
+					user << "<span class='warning'>[thrallToRevive] is already empowered.</span>"
+					revert_cast()
+					return
 				var/empowered_thralls = 0
 				for(var/datum/mind/M in ticker.mode.thralls)
 					if(!ishuman(M.current))
@@ -567,8 +566,8 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 											   "<span class='shadowling'><b>You feel new power flow into you. You have been gifted by your masters. You now closely resemble them. You are empowered in \
 											    darkness but wither slowly in light. In addition, Lesser Glare and Guise have been upgraded into their true forms.</b></span>")
 				thrallToRevive.set_species(/datum/species/shadow/ling/lesser)
-				thrallToRevive.mind.remove_spell(/obj/effect/proc_holder/spell/targeted/lesser_glare)
-				thrallToRevive.mind.remove_spell(/obj/effect/proc_holder/spell/self/lesser_shadow_walk)
+				thrallToRevive.mind.RemoveSpell(/obj/effect/proc_holder/spell/targeted/lesser_glare)
+				thrallToRevive.mind.RemoveSpell(/obj/effect/proc_holder/spell/self/lesser_shadow_walk)
 				thrallToRevive.mind.AddSpell(new /obj/effect/proc_holder/spell/targeted/glare(null))
 				thrallToRevive.mind.AddSpell(new /obj/effect/proc_holder/spell/self/shadow_walk(null))
 			if("Revive")
@@ -593,12 +592,12 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 				playsound(thrallToRevive, 'sound/machines/defib_zap.ogg', 50, 1)
 				user.Beam(thrallToRevive,icon_state="red_lightning",icon='icons/effects/effects.dmi',time=1)
 				sleep(10)
-				thrallToRevive.revive()
-				thrallToRevive.visible_message("<span class='boldannounce'>[thrallToRevive] heaves in breath, dim red light shining in their eyes.</span>", \
+				if(thrallToRevive.revive(full_heal = 1))
+					thrallToRevive.visible_message("<span class='boldannounce'>[thrallToRevive] heaves in breath, dim red light shining in their eyes.</span>", \
 											   "<span class='shadowling'><b><i>You have returned. One of your masters has brought you from the darkness beyond.</b></i></span>")
-				thrallToRevive.Weaken(4)
-				thrallToRevive.emote("gasp")
-				playsound(thrallToRevive, "bodyfall", 50, 1)
+					thrallToRevive.Weaken(4)
+					thrallToRevive.emote("gasp")
+					playsound(thrallToRevive, "bodyfall", 50, 1)
 			else
 				revert_cast()
 				return
@@ -721,12 +720,13 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	active = !active
 	if(active)
 		user << "<span class='notice'>You shift the nerves in your eyes, allowing you to see in the dark.</span>"
-		user.see_in_dark = 8
+		user.dna.species.darksight = 8
 		user.dna.species.invis_sight = SEE_INVISIBLE_MINIMUM
 	else
 		user << "<span class='notice'>You return your vision to normal.</span>"
-		user.see_in_dark = 0
+		user.dna.species.darksight = 0
 		user.dna.species.invis_sight = initial(user.dna.species.invis_sight)
+	user.update_sight()
 
 
 /obj/effect/proc_holder/spell/self/lesser_shadowling_hivemind //Lets a thrall talk with their allies
@@ -746,9 +746,13 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	var/text = stripped_input(user, "What do you want to say your masters and fellow thralls?.", "Lesser Commune", "")
 	if(!text)
 		return
+	text = "<span class='shadowling'><b>\[Thrall\]</b><i> [user.real_name]</i>: [text]</span>"
 	for(var/mob/M in mob_list)
-		if(is_shadow_or_thrall(M) || (M in dead_mob_list))
-			M << "<span class='shadowling'><b>\[Thrall\]</b><i> [user.real_name]</i>: [text]</span>"
+		if(is_shadow_or_thrall(M))
+			M << text
+		if(isobserver(M))
+			var/link = FOLLOW_LINK(M, user)
+			M << "[link] [text]"
 	log_say("[user.real_name]/[user.key] : [text]")
 
 
@@ -766,7 +770,7 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	sound = 'sound/magic/Staff_Chaos.ogg'
 
 /obj/effect/proc_holder/spell/targeted/annihilate/cast(list/targets,mob/living/simple_animal/ascendant_shadowling/user = usr)
-	if(user.phasing)
+	if(user.incorporeal_move)
 		user << "<span class='warning'>You are not in the same plane of existence. Unphase first.</span>"
 		revert_cast()
 		return
@@ -794,7 +798,7 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	action_icon_state = "enthrall"
 
 /obj/effect/proc_holder/spell/targeted/hypnosis/cast(list/targets,mob/living/simple_animal/ascendant_shadowling/user = usr)
-	if(user.phasing)
+	if(user.incorporeal_move)
 		revert_cast()
 		user << "<span class='warning'>You are not in the same plane of existence. Unphase first.</span>"
 		return
@@ -831,19 +835,18 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	clothes_req = 0
 	action_icon_state = "shadow_walk"
 
-/obj/effect/proc_holder/spell/self/shadowling_phase_shift/cast(list/targets,mob/living/simple_animal/ascendant_shadowling/user = usr)
-	for(user in targets)
-		user.phasing = !user.phasing
-		if(user.phasing)
-			user.visible_message("<span class='danger'>[user] suddenly vanishes!</span>", \
-			"<span class='shadowling'>You begin phasing through planes of existence. Use the ability again to return.</span>")
-			user.incorporeal_move = 1
-			user.alpha = 0
-		else
-			user.visible_message("<span class='danger'>[user] suddenly appears from nowhere!</span>", \
-			"<span class='shadowling'>You return from the space between worlds.</span>")
-			user.incorporeal_move = 0
-			user.alpha = 255
+/obj/effect/proc_holder/spell/self/shadowling_phase_shift/cast(mob/living/simple_animal/ascendant_shadowling/user)
+	user.incorporeal_move = !user.incorporeal_move
+	if(user.incorporeal_move)
+		user.visible_message("<span class='danger'>[user] suddenly vanishes!</span>", \
+		"<span class='shadowling'>You begin phasing through planes of existence. Use the ability again to return.</span>")
+		user.density = 0
+		user.alpha = 0
+	else
+		user.visible_message("<span class='danger'>[user] suddenly appears from nowhere!</span>", \
+		"<span class='shadowling'>You return from the space between worlds.</span>")
+		user.density = 1
+		user.alpha = 255
 
 
 /obj/effect/proc_holder/spell/aoe_turf/ascendant_storm //Releases bolts of lightning to everyone nearby
@@ -857,7 +860,7 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	sound = 'sound/magic/lightningbolt.ogg'
 
 /obj/effect/proc_holder/spell/aoe_turf/ascendant_storm/cast(list/targets,mob/living/simple_animal/ascendant_shadowling/user = usr)
-	if(user.phasing)
+	if(user.incorporeal_move)
 		user << "<span class='warning'>You are not in the same plane of existence. Unphase first.</span>"
 		revert_cast()
 		return
@@ -887,8 +890,11 @@ datum/reagent/shadowling_blindness_smoke //Reagent used for above spell
 	var/text = stripped_input(user, "What do you want to say to fellow thralls and shadowlings?.", "Hive Chat", "")
 	if(!text)
 		return
-	text = "<font size=4>[text]</font>"
+	text = "<font size=4><span class='shadowling'><b>\[Ascendant\]<i> [user.real_name]</i>: [text]</b></span></font>"
 	for(var/mob/M in mob_list)
-		if(is_shadow_or_thrall(M) || (M in dead_mob_list))
-			M << "<span class='shadowling'><b>\[Ascendant\]<i> [user.real_name]</i>: [text]</b></span>" //Bigger text for ascendants.
+		if(is_shadow_or_thrall(M))
+			M << text
+		if(isobserver(M))
+			var/link = FOLLOW_LINK(M, user)
+			M << "[link] [text]"
 	log_say("[user.real_name]/[user.key] : [text]")

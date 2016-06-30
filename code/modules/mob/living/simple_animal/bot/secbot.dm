@@ -3,7 +3,6 @@
 	desc = "A little security robot.  He looks less than thrilled."
 	icon = 'icons/obj/aibots.dmi'
 	icon_state = "secbot0"
-	layer = 5
 	density = 0
 	anchored = 0
 	health = 25
@@ -11,13 +10,15 @@
 	damage_coeff = list(BRUTE = 0.5, BURN = 0.7, TOX = 0, CLONE = 0, STAMINA = 0, OXY = 0)
 	pass_flags = PASSMOB
 
-	radio_key = /obj/item/device/encryptionkey/headset_sec
+	radio_key = /obj/item/device/encryptionkey/secbot //AI Priv + Security
 	radio_channel = "Security" //Security channel
 	bot_type = SEC_BOT
 	model = "Securitron"
 	bot_core_type = /obj/machinery/bot_core/secbot
 	window_id = "autosec"
 	window_name = "Automatic Security Unit v1.6"
+	allow_pai = 0
+	data_hud_type = DATA_HUD_SECURITY_ADVANCED
 
 	var/mob/living/carbon/target
 	var/oldtarget_name
@@ -41,7 +42,7 @@
 	var/turf/Tsec = get_turf(src)
 	new /obj/item/weapon/stock_parts/cell/potato(Tsec)
 	var/obj/item/weapon/reagent_containers/food/drinks/drinkingglass/shotglass/S = new(Tsec)
-	S.list_reagents = list("whiskey" = 15)
+	S.reagents.add_reagent("whiskey", 15)
 	S.on_reagent_change()
 	..()
 
@@ -87,6 +88,7 @@
 /mob/living/simple_animal/bot/secbot/get_controls(mob/user)
 	var/dat
 	dat += hack(user)
+	dat += showpai(user)
 	dat += text({"
 <TT><B>Securitron v1.6 controls</B></TT><BR><BR>
 Status: []<BR>
@@ -153,9 +155,8 @@ Auto Patrol: []"},
 	if(!istype(W, /obj/item/weapon/screwdriver) && (W.force) && (!target) && (W.damtype != STAMINA) ) // Added check for welding tool to fix #2432. Welding tool behavior is handled in superclass.
 		retaliate(user)
 
-/mob/living/simple_animal/bot/secbot/Emag(mob/user)
+/mob/living/simple_animal/bot/secbot/emag_act(mob/user)
 	..()
-
 	if(emagged == 2)
 		if(user)
 			user << "<span class='danger'>You short out [src]'s target assessment circuits.</span>"
@@ -167,7 +168,7 @@ Auto Patrol: []"},
 /mob/living/simple_animal/bot/secbot/bullet_act(obj/item/projectile/Proj)
 	if(istype(Proj ,/obj/item/projectile/beam)||istype(Proj,/obj/item/projectile/bullet))
 		if((Proj.damage_type == BURN) || (Proj.damage_type == BRUTE))
-			if (!Proj.nodamage && Proj.damage < src.health)
+			if(!Proj.nodamage && Proj.damage < src.health)
 				retaliate(Proj.firer)
 	..()
 
@@ -184,6 +185,16 @@ Auto Patrol: []"},
 	else
 		..()
 
+
+/mob/living/simple_animal/bot/secbot/hitby(atom/movable/AM, skipcatch = 0, hitpush = 1, blocked = 0)
+	if(istype(AM, /obj/item))
+		var/obj/item/I = AM
+		if(I.throwforce < src.health && I.thrownby && (istype(I.thrownby, /mob/living/carbon/human)))
+			var/mob/living/carbon/human/H = I.thrownby
+			retaliate(H)
+	..()
+
+
 /mob/living/simple_animal/bot/secbot/proc/cuff(mob/living/carbon/C)
 	mode = BOT_ARREST
 	playsound(loc, 'sound/weapons/cablecuff.ogg', 30, 1, -2)
@@ -194,7 +205,7 @@ Auto Patrol: []"},
 			return
 		if(!C.handcuffed)
 			C.handcuffed = new /obj/item/weapon/restraints/handcuffs/cable/zipties/used(C)
-			C.update_inv_handcuffed(0)	//update the handcuffs overlay
+			C.update_handcuffed()
 			playsound(loc, pick('sound/voice/bgod.ogg', 'sound/voice/biamthelaw.ogg', 'sound/voice/bsecureday.ogg', 'sound/voice/bradio.ogg', 'sound/voice/binsult.ogg', 'sound/voice/bcreep.ogg'), 50, 0)
 			back_to_idle()
 
@@ -214,6 +225,7 @@ Auto Patrol: []"},
 		C.Weaken(5)
 		C.stuttering = 5
 		C.Stun(5)
+		threat = C.assess_threat()
 	add_logs(src,C,"stunned")
 	if(declare_arrests)
 		var/area/location = get_area(src)
@@ -222,7 +234,7 @@ Auto Patrol: []"},
 							"<span class='userdanger'>[src] has stunned you!</span>")
 
 /mob/living/simple_animal/bot/secbot/handle_automated_action()
-	if (!..())
+	if(!..())
 		return
 
 	switch(mode)
@@ -280,7 +292,7 @@ Auto Patrol: []"},
 				return
 
 		if(BOT_ARREST)
-			if (!target)
+			if(!target)
 				anchored = 0
 				mode = BOT_IDLE
 				last_found = world.time
@@ -291,7 +303,7 @@ Auto Patrol: []"},
 				back_to_idle()
 				return
 
-			if( !Adjacent(target) || !isturf(target.loc) || (target.loc != target_lastloc && target.weakened < 2) ) //if he's changed loc and about to get up or not adjacent or got into a closet, we prep arrest again.
+			if(!Adjacent(target) || !isturf(target.loc) || (target.loc != target_lastloc && target.weakened < 2)) //if he's changed loc and about to get up or not adjacent or got into a closet, we prep arrest again.
 				back_to_hunt()
 				return
 			else //Try arresting again if the target escapes.
@@ -365,7 +377,7 @@ Auto Patrol: []"},
 
 	var/obj/item/weapon/secbot_assembly/Sa = new /obj/item/weapon/secbot_assembly(Tsec)
 	Sa.build_step = 1
-	Sa.overlays += "hs_hole"
+	Sa.add_overlay("hs_hole")
 	Sa.created_name = name
 	new /obj/item/device/assembly/prox_sensor(Tsec)
 	new /obj/item/weapon/melee/baton(Tsec)

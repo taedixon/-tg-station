@@ -1,7 +1,8 @@
 /mob/dead/observer/DblClickOn(var/atom/A, var/params)
-	if(client.buildmode)
-		build_click(src, client.buildmode, params, A)
-		return
+	if(client.click_intercept)
+		if(call(client.click_intercept,"InterceptClickOn")(src,params,A))
+			return
+
 	if(can_reenter_corpse && mind && mind.current)
 		if(A == mind.current || (mind.current in A)) // double click your corpse or whatever holds it
 			reenter_corpse()						// (cloning scanner, body bag, closet, mech, etc)
@@ -16,11 +17,15 @@
 		loc = get_turf(A)
 
 /mob/dead/observer/ClickOn(var/atom/A, var/params)
-	if(client.buildmode)
-		build_click(src, client.buildmode, params, A)
-		return
+
+	if(client.click_intercept)
+		if(call(client.click_intercept,"InterceptClickOn")(src,params,A))
+			return
 
 	var/list/modifiers = params2list(params)
+	if(modifiers["shift"] && modifiers["middle"])
+		ShiftMiddleClickOn(A)
+		return
 	if(modifiers["middle"])
 		MiddleClickOn(A)
 		return

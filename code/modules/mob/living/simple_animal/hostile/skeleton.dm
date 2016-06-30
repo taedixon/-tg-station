@@ -29,8 +29,7 @@
 	faction = list("skeleton")
 	see_invisible = SEE_INVISIBLE_MINIMUM
 	see_in_dark = 8
-	layer = MOB_LAYER - 0.1
-	deathmessage = "The skeleton collaspes into a pile of bones!"
+	deathmessage = "collapses into a pile of bones!"
 	del_on_death = 1
 	loot = list(/obj/effect/decal/remains/human)
 
@@ -46,7 +45,7 @@
 	gold_core_spawnable = 0
 	melee_damage_lower = 17
 	melee_damage_upper = 20
-	deathmessage = "The skeleton collaspes into a pile of bones, its gear falling to the floor!"
+	deathmessage = "collapses into a pile of bones, its gear falling to the floor!"
 	loot = list(/obj/effect/decal/remains/human,
 				/obj/item/weapon/twohanded/spear,
 				/obj/item/clothing/shoes/winterboots,
@@ -60,8 +59,8 @@
 	icon_state = "templar"
 	icon_living = "templar"
 	icon_dead = "templar_dead"
-	maxHealth = 125
-	health = 125
+	maxHealth = 150
+	health = 150
 	speed = 2
 	gold_core_spawnable = 0
 	speak_chance = 1
@@ -69,21 +68,11 @@
 	force_threshold = 10 //trying to simulate actually having armor
 	melee_damage_lower = 25
 	melee_damage_upper = 30
-	deathmessage = "The templar knight collaspes into a pile of bones, its gear clanging as it hits the ground!"
+	deathmessage = "collapses into a pile of bones, its gear clanging as it hits the ground!"
 	loot = list(/obj/effect/decal/remains/human,
 				/obj/item/clothing/suit/armor/riot/knight/templar,
 				/obj/item/clothing/head/helmet/knight/templar,
 				/obj/item/weapon/claymore/hog{name = "holy sword"})
-
-/mob/living/simple_animal/hostile/skeleton/templar/bullet_act(obj/item/projectile/Proj)
-	if(!Proj)
-		return
-	if(prob(50))
-		if((Proj.damage_type == BRUTE || Proj.damage_type == BURN))
-			src.health -= Proj.damage
-	else
-		visible_message("<span class='danger'>[src] blocks [Proj] with its sword!</span>")
-	return 0
 
 /mob/living/simple_animal/hostile/skeleton/ice
 	name = "ice skeleton"

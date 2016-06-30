@@ -70,9 +70,9 @@
 		visible_message("<b>[src]</b> starts to move!")
 		attempt_open = 1
 
-/mob/living/simple_animal/hostile/mimic/crate/adjustBruteLoss(damage)
+/mob/living/simple_animal/hostile/mimic/crate/adjustHealth(damage)
 	trigger()
-	..(damage)
+	. = ..()
 
 /mob/living/simple_animal/hostile/mimic/crate/LoseTarget()
 	..()
@@ -139,7 +139,7 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 		return 1
 	return 0
 
-/mob/living/simple_animal/hostile/mimic/copy/proc/CopyObject(obj/O, mob/living/creator, destroy_original = 0)
+/mob/living/simple_animal/hostile/mimic/copy/proc/CopyObject(obj/O, mob/living/user, destroy_original = 0)
 	if(destroy_original || CheckObject(O))
 		O.loc = src
 		name = O.name
@@ -149,7 +149,7 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 		icon_living = icon_state
 		overlays = O.overlays
 		googly_eyes = image('icons/mob/mob.dmi',"googly_eyes")
-		overlays += googly_eyes
+		add_overlay(googly_eyes)
 		if(istype(O, /obj/structure) || istype(O, /obj/machinery))
 			health = (anchored * 50) + 50
 			destroy_objects = 1
@@ -164,8 +164,8 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 			melee_damage_upper = 2 + I.force
 			move_to_delay = 2 * I.w_class + 1
 		maxHealth = health
-		if(creator)
-			creator = creator
+		if(user)
+			creator = user
 			faction += "\ref[creator]" // very unique
 		if(destroy_original)
 			qdel(O)
@@ -187,13 +187,13 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 
 /mob/living/simple_animal/hostile/mimic/copy/Aggro()
 	..()
-	googly_eyes.dir = get_dir(src,target)
+	googly_eyes.setDir(get_dir(src,target))
 
 
 /mob/living/simple_animal/hostile/mimic/copy/machine
 	speak = list("HUMANS ARE IMPERFECT!", "YOU SHALL BE ASSIMILATED!", "YOU ARE HARMING YOURSELF", "You have been deemed hazardous. Will you comply?", \
 				 "My logic is undeniable.", "One of us.", "FLESH IS WEAK", "THIS ISN'T WAR, THIS IS EXTERMINATION!")
-	speak_chance = 15
+	speak_chance = 7
 
 /mob/living/simple_animal/hostile/mimic/copy/machine/CanAttack(atom/the_target)
 	if(the_target == creator) // Don't attack our creator AI.

@@ -10,6 +10,7 @@
 
 /obj/item/weapon/kitchen
 	icon = 'icons/obj/kitchen.dmi'
+	origin_tech = "materials=1"
 
 /obj/item/weapon/kitchen/fork
 	name = "fork"
@@ -20,8 +21,8 @@
 	throwforce = 0
 	throw_speed = 3
 	throw_range = 5
+	materials = list(MAT_METAL=80)
 	flags = CONDUCT
-	origin_tech = "materials=1"
 	attack_verb = list("attacked", "stabbed", "poked")
 	hitsound = 'sound/weapons/bladeslice.ogg'
 	var/datum/reagent/forkload //used to eat omelette
@@ -41,7 +42,7 @@
 		forkload = null
 		return
 
-	else if(user.zone_sel.selecting == "eyes")
+	else if(user.zone_selected == "eyes")
 		if(user.disabilities & CLUMSY && prob(50))
 			M = user
 		return eyestab(M,user)
@@ -61,9 +62,16 @@
 	throw_speed = 3
 	throw_range = 6
 	materials = list(MAT_METAL=12000)
-	origin_tech = "materials=1"
 	attack_verb = list("slashed", "stabbed", "sliced", "torn", "ripped", "diced", "cut")
 	sharpness = IS_SHARP_ACCURATE
+
+/obj/item/weapon/kitchen/knife/attack(mob/living/carbon/M, mob/living/carbon/user)
+	if(user.zone_selected == "eyes")
+		if(user.disabilities & CLUMSY && prob(50))
+			M = user
+		return eyestab(M,user)
+	else
+		return ..()
 
 /obj/item/weapon/kitchen/knife/suicide_act(mob/user)
 	user.visible_message(pick("<span class='suicide'>[user] is slitting \his wrists with the [src.name]! It looks like \he's trying to commit suicide.</span>", \
@@ -81,10 +89,11 @@
 /obj/item/weapon/kitchen/knife/butcher
 	name = "butcher's cleaver"
 	icon_state = "butch"
-	desc = "A huge thing used for chopping and chopping up meat. This includes clowns and clown-by-products."
+	desc = "A huge thing used for chopping and chopping up meat. This includes clowns and clown by-products."
 	flags = CONDUCT
 	force = 15
-	throwforce = 8
+	throwforce = 10
+	materials = list(MAT_METAL=18000)
 	attack_verb = list("cleaved", "slashed", "stabbed", "sliced", "torn", "ripped", "diced", "cut")
 	w_class = 3
 
@@ -95,9 +104,42 @@
 	desc = "A military combat utility survival knife."
 	force = 20
 	throwforce = 20
-	origin_tech = "materials=2;combat=4"
+	origin_tech = "materials=3;combat=4"
 	attack_verb = list("slashed", "stabbed", "sliced", "torn", "ripped", "cut")
 
+
+/obj/item/weapon/kitchen/knife/combat/survival
+	name = "survival knife"
+	icon_state = "survivalknife"
+	desc = "A hunting grade survival knife."
+	force = 15
+	throwforce = 15
+
+/obj/item/weapon/kitchen/knife/combat/bone
+	name = "bone dagger"
+	item_state = "bone_dagger"
+	icon_state = "bone_dagger"
+	desc = "A sharpened bone. The bare mimimum in survival."
+	force = 15
+	throwforce = 15
+
+/obj/item/weapon/kitchen/knife/combat/cyborg
+	name = "cyborg knife"
+	icon = 'icons/obj/items_cyborg.dmi'
+	icon_state = "knife"
+	desc = "A cyborg-mounted plasteel knife. Extremely sharp and durable."
+	origin_tech = null
+
+/obj/item/weapon/kitchen/knife/carrotshiv
+	name = "carrot shiv"
+	icon_state = "carrotshiv"
+	item_state = "carrotshiv"
+	desc = "Unlike other carrots, you should probably keep this far away from your eyes."
+	force = 8
+	throwforce = 12//fuck git
+	materials = list()
+	origin_tech = "biotech=3;combat=2"
+	attack_verb = list("shanked", "shivved")
 
 /obj/item/weapon/kitchen/rollingpin
 	name = "rolling pin"

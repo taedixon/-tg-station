@@ -34,13 +34,12 @@
 				return
 
 	hand = !hand
-	if(hud_used.l_hand_hud_object && hud_used.r_hand_hud_object)
-		if(hand)
-			hud_used.l_hand_hud_object.icon_state = "hand_l_active"
-			hud_used.r_hand_hud_object.icon_state = "hand_r_inactive"
-		else
-			hud_used.l_hand_hud_object.icon_state = "hand_l_inactive"
-			hud_used.r_hand_hud_object.icon_state = "hand_r_active"
+	if(hud_used && hud_used.inv_slots[slot_l_hand] && hud_used.inv_slots[slot_r_hand])
+		var/obj/screen/inventory/hand/H
+		H = hud_used.inv_slots[slot_l_hand]
+		H.update_icon()
+		H = hud_used.inv_slots[slot_r_hand]
+		H.update_icon()
 
 
 /mob/living/simple_animal/drone/unEquip(obj/item/I, force)
@@ -81,8 +80,10 @@
 
 
 /mob/living/simple_animal/drone/equip_to_slot(obj/item/I, slot)
-	if(!slot)	return
-	if(!istype(I))	return
+	if(!slot)
+		return
+	if(!istype(I))
+		return
 
 	if(I == l_hand)
 		l_hand = null
@@ -90,10 +91,13 @@
 		r_hand = null
 	update_inv_hands()
 
+	if(I.pulledby)
+		I.pulledby.stop_pulling()
+
 	I.screen_loc = null // will get moved if inventory is visible
 	I.loc = src
 	I.equipped(src, slot)
-	I.layer = 20
+	I.layer = ABOVE_HUD_LAYER
 
 	switch(slot)
 		if(slot_head)
@@ -113,3 +117,9 @@
 
 /mob/living/simple_animal/drone/stripPanelEquip(obj/item/what, mob/who, where)
 	..(what, who, where, 1)
+
+/mob/living/simple_animal/drone/getBackSlot()
+	return slot_drone_storage
+
+/mob/living/simple_animal/drone/getBeltSlot()
+	return slot_drone_storage

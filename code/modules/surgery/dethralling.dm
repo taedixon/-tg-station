@@ -17,10 +17,10 @@
 /datum/surgery_step/dethrall/success(mob/user, mob/living/carbon/target, target_zone, datum/surgery/surgery)
 	if(target.dna.species.id == "l_shadowling") //Empowered thralls cannot be deconverted
 		target << "<span class='shadowling'><b><i>NOT LIKE THIS!</i></b></span>"
-		user.visible_message("<span class='warning'><b>[target] suddenly slams upward and knocks down [user]!</span>", \
+		user.visible_message("<span class='danger'>[target] suddenly slams upward and knocks down [user]!</span>", \
 							 "<span class='userdanger'>[target] suddenly bolts up and slams you with tremendous force!</span>")
 		user.resting = 0 //Remove all stuns
-		user.sleeping = 0
+		user.SetSleeping(0)
 		user.SetStunned(0)
 		user.SetWeakened(0)
 		user.SetParalysis(0)
@@ -37,5 +37,5 @@
 	user.visible_message("[user] shines light onto the tumor in [target]'s head!", "<span class='notice'>You cleanse the contamination from [target]'s brain!</span>")
 	ticker.mode.remove_thrall(target.mind, 0)
 	target.visible_message("<span class='warning'>A strange black mass falls from [target]'s head!</span>")
-	new /obj/item/organ/internal/shadowtumor(get_turf(target))
+	new /obj/item/organ/shadowtumor(get_turf(target))
 	return 1

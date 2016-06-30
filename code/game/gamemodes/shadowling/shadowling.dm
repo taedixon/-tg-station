@@ -168,7 +168,7 @@ Made by Xhuis
 	thrall_mind.current.attack_log += "\[[time_stamp()]\] <span class='danger'>Dethralled</span>"
 	thrall_mind.special_role = null
 	for(var/obj/effect/proc_holder/spell/S in thrall_mind.spell_list)
-		thrall_mind.remove_spell(S)
+		thrall_mind.RemoveSpell(S)
 	if(kill && ishuman(thrall_mind.current)) //If dethrallization surgery fails, kill the mob as well as dethralling them
 		var/mob/living/carbon/human/H = thrall_mind.current
 		H.visible_message("<span class='warning'>[H] jerks violently and falls still.</span>", \
@@ -192,7 +192,7 @@ Made by Xhuis
 	ling_mind.current.attack_log += "\[[time_stamp()]\] <span class='danger'>Deshadowlinged</span>"
 	ling_mind.special_role = null
 	for(var/obj/effect/proc_holder/spell/S in ling_mind.spell_list)
-		ling_mind.remove_spell(S)
+		ling_mind.RemoveSpell(S)
 	var/mob/living/M = ling_mind.current
 	if(issilicon(M))
 		M.audible_message("<span class='notice'>[M] lets out a short blip.</span>", \
@@ -217,11 +217,11 @@ Made by Xhuis
 
 
 /datum/game_mode/shadowling/declare_completion()
-	if(check_shadow_victory() && SSshuttle.emergency.mode >= SHUTTLE_ESCAPE) //Doesn't end instantly - this is hacky and I don't know of a better way ~X
+	if(check_shadow_victory() && EMERGENCY_ESCAPED_OR_ENDGAMED) //Doesn't end instantly - this is hacky and I don't know of a better way ~X
 		world << "<span class='greentext'>The shadowlings have ascended and taken over the station!</span>"
 	else if(shadowling_dead && !check_shadow_victory()) //If the shadowlings have ascended, they can not lose the round
 		world << "<span class='redtext'>The shadowlings have been killed by the crew!</span>"
-	else if(!check_shadow_victory() && SSshuttle.emergency.mode >= SHUTTLE_ESCAPE)
+	else if(!check_shadow_victory() && EMERGENCY_ESCAPED_OR_ENDGAMED)
 		world << "<span class='redtext'>The crew escaped the station before the shadowlings could ascend!</span>"
 	else
 		world << "<span class='redtext'>The shadowlings have failed!</span>"
@@ -254,9 +254,10 @@ Made by Xhuis
 	name = "Shadowling"
 	id = "shadowling"
 	say_mod = "chitters"
-	specflags = list(NOBREATH,NOBLOOD,RADIMMUNE,NOGUNS) //Can't use guns due to muzzle flash
+	specflags = list(NOBREATH,NOBLOOD,RADIMMUNE,NOGUNS,NODISMEMBER) //Can't use guns due to muzzle flash
 	burnmod = 1.5 //1.5x burn damage, 2x is excessive
 	heatmod = 1.5
+
 
 /datum/species/shadow/ling/spec_life(mob/living/carbon/human/H)
 	if(!H.weakeyes) H.weakeyes = 1 //Makes them more vulnerable to flashes and flashbangs
@@ -306,7 +307,7 @@ Made by Xhuis
 	shadow_hud.join_hud(shadow_mind.current)
 	set_antag_hud(shadow_mind.current, ((shadow_mind in shadows) ? "shadowling" : "thrall"))
 
-/datum/game_mode/proc/update_shadow_icons_removed(datum/mind/shadow_mind) //This should never actually occur, but it's here anyway.
+/datum/game_mode/proc/update_shadow_icons_removed(datum/mind/shadow_mind)
 	var/datum/atom_hud/antag/shadow_hud = huds[ANTAG_HUD_SHADOW]
 	shadow_hud.leave_hud(shadow_mind.current)
 	set_antag_hud(shadow_mind.current, null)

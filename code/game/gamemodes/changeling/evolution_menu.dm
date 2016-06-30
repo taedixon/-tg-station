@@ -392,13 +392,13 @@ var/list/sting_paths
 			mind.changeling.changeling_speak = 0
 			mind.changeling.reset()
 			for(var/obj/effect/proc_holder/changeling/p in mind.changeling.purchasedpowers)
-				if(p.dna_cost == 0 && keep_free_powers)
+				if((p.dna_cost == 0 && keep_free_powers) || p.always_keep)
 					continue
 				mind.changeling.purchasedpowers -= p
 				p.on_refund(src)
 		if(hud_used)
 			hud_used.lingstingdisplay.icon_state = null
-			hud_used.lingstingdisplay.invisibility = 101
+			hud_used.lingstingdisplay.invisibility = INVISIBILITY_ABSTRACT
 
 /datum/changeling/proc/has_sting(obj/effect/proc_holder/changeling/power)
 	for(var/obj/effect/proc_holder/changeling/P in purchasedpowers)

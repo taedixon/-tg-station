@@ -33,14 +33,24 @@ var/bomb_set
 	var/deconstruction_state = NUKESTATE_INTACT
 	var/image/lights = null
 	var/image/interior = null
+	var/obj/effect/countdown/nuclearbomb/countdown
 
 /obj/machinery/nuclearbomb/New()
 	..()
+	countdown = new(src)
 	nuke_list += src
 	core = new /obj/item/nuke_core(src)
-	SSobj.processing -= core
+	STOP_PROCESSING(SSobj, core)
 	update_icon()
+	poi_list |= src
 	previous_level = get_security_level()
+
+/obj/machinery/nuclearbomb/Destroy()
+	poi_list -= src
+	nuke_list -= src
+	qdel(countdown)
+	countdown = null
+	. = ..()
 
 /obj/machinery/nuclearbomb/selfdestruct
 	name = "station self-destruct terminal"
@@ -48,7 +58,7 @@ var/bomb_set
 	icon = 'icons/obj/machines/nuke_terminal.dmi'
 	icon_state = "nuclearbomb_base"
 	anchored = 1 //stops it being moved
-	layer = 4
+	layer = MOB_LAYER
 
 /obj/machinery/nuclearbomb/syndicate
 
@@ -108,7 +118,8 @@ var/bomb_set
 					user << "<span class='notice'>You pry off [src]'s inner plate. You can see the core's green glow!</span>"
 					deconstruction_state = NUKESTATE_CORE_EXPOSED
 					update_icon()
-					SSobj.processing += core
+					START_PROCESSING(SSobj, core)
+				return
 		if(NUKESTATE_CORE_EXPOSED)
 			if(istype(I, /obj/item/nuke_core_container))
 				var/obj/item/nuke_core_container/core_box = I
@@ -130,15 +141,14 @@ var/bomb_set
 						if(M.use(20))
 							user << "<span class='notice'>You repair [src]'s inner metal plate. The radiation is contained.</span>"
 							deconstruction_state = NUKESTATE_PANEL_REMOVED
-							SSobj.processing -= core
+							STOP_PROCESSING(SSobj, core)
 							update_icon()
 						else
 							user << "<span class='warning'>You need more metal to do that!</span>"
 				else
 					user << "<span class='warning'>You need more metal to do that!</span>"
 				return
-		else
-			..()
+	return ..()
 
 /obj/machinery/nuclearbomb/proc/get_nuke_state()
 	if(timing < 0)
@@ -158,10 +168,10 @@ var/bomb_set
 				update_icon_interior()
 				update_icon_lights()
 			if(NUKE_ON_TIMING)
-				overlays.Cut()
+				cut_overlays()
 				icon_state = "nuclearbomb_timing"
 			if(NUKE_ON_EXPLODING)
-				overlays.Cut()
+				cut_overlays()
 				icon_state = "nuclearbomb_exploding"
 	else
 		icon_state = "nuclearbomb_base"
@@ -183,7 +193,7 @@ var/bomb_set
 			interior = image(icon,"core-removed")
 		if(NUKESTATE_INTACT)
 			interior = null
-	overlays += interior
+	add_overlay(interior)
 
 /obj/machinery/nuclearbomb/proc/update_icon_lights()
 	overlays -= lights
@@ -196,10 +206,11 @@ var/bomb_set
 			lights = image(icon,"lights-timing")
 		if(NUKE_ON_EXPLODING)
 			lights = image(icon,"lights-exploding")
-	overlays += lights
+	add_overlay(lights)
 
 /obj/machinery/nuclearbomb/process()
 	if (timing > 0)
+		countdown.start()
 		bomb_set = 1 //So long as there is one nuke timing, it means one nuke is armed.
 		timeleft--
 		if (timeleft <= 0)
@@ -210,7 +221,8 @@ var/bomb_set
 		for(var/mob/M in viewers(1, src))
 			if ((M.client && M.machine == src))
 				attack_hand(M)
-	return
+	else
+		countdown.stop()
 
 /obj/machinery/nuclearbomb/attack_paw(mob/user)
 	return attack_hand(user)
@@ -304,18 +316,19 @@ var/bomb_set
 /obj/machinery/nuclearbomb/proc/set_safety()
 	safety = !safety
 	if(safety)
+		if(timing)
+			set_security_level(previous_level)
 		timing = 0
 		bomb_set = 0
-		set_security_level(previous_level)
 	update_icon()
 
 /obj/machinery/nuclearbomb/proc/set_active()
-	if(safety)
+	if(safety && !bomb_set)
 		usr << "<span class='danger'>The safety is still on.</span>"
 		return
 	timing = !timing
-	previous_level = get_security_level()
 	if(timing)
+		previous_level = get_security_level()
 		bomb_set = 1
 		set_security_level("delta")
 	else
@@ -326,7 +339,7 @@ var/bomb_set
 /obj/machinery/nuclearbomb/ex_act(severity, target)
 	return
 
-/obj/machinery/nuclearbomb/blob_act()
+/obj/machinery/nuclearbomb/blob_act(obj/effect/blob/B)
 	if (timing == -1)
 		return
 	else
@@ -391,8 +404,9 @@ This is here to make the tiles around the station mininuke change when it's arme
 
 /obj/machinery/nuclearbomb/selfdestruct/proc/SetTurfs()
 	if(loc == initial(loc))
-		for(var/turf/simulated/floor/bluegrid/T in orange(src, 1))
-			T.icon_state = (timing ? "rcircuitanim" : "bcircuit")
+		for(var/N in nuke_tiles)
+			var/turf/open/floor/T = N
+			T.icon_state = (timing ? "rcircuitanim" : T.icon_regular_floor)
 
 /obj/machinery/nuclearbomb/selfdestruct/set_anchor()
 	return
@@ -401,36 +415,52 @@ This is here to make the tiles around the station mininuke change when it's arme
 	..()
 	SetTurfs()
 
+/obj/machinery/nuclearbomb/selfdestruct/set_safety()
+	..()
+	SetTurfs()
+
 //==========DAT FUKKEN DISK===============
+/obj/item/weapon/disk
+	icon = 'icons/obj/module.dmi'
+	w_class = 1
+	item_state = "card-id"
+	icon_state = "datadisk0"
+
 /obj/item/weapon/disk/nuclear
 	name = "nuclear authentication disk"
 	desc = "Better keep this safe."
-	icon = 'icons/obj/items.dmi'
 	icon_state = "nucleardisk"
-	item_state = "card-id"
-	w_class = 1
 
 /obj/item/weapon/disk/nuclear/New()
 	..()
 	poi_list |= src
-	SSobj.processing |= src
+	START_PROCESSING(SSobj, src)
 
 /obj/item/weapon/disk/nuclear/process()
 	var/turf/disk_loc = get_turf(src)
-	if(disk_loc.z > ZLEVEL_CENTCOM)
+	if(!disk_loc || disk_loc.z > ZLEVEL_CENTCOM)
 		get(src, /mob) << "<span class='danger'>You can't help but feel that you just lost something back there...</span>"
 		qdel(src)
 
-/obj/item/weapon/disk/nuclear/Destroy()
+/obj/item/weapon/disk/nuclear/Destroy(force)
+	var/turf/diskturf = get_turf(src)
+
+	if(force)
+		message_admins("[src] has been !!force deleted!! in ([diskturf ? "[diskturf.x], [diskturf.y] ,[diskturf.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[diskturf.x];Y=[diskturf.y];Z=[diskturf.z]'>JMP</a>":"nonexistent location"]).")
+		log_game("[src] has been !!force deleted!! in ([diskturf ? "[diskturf.x], [diskturf.y] ,[diskturf.z]":"nonexistent location"]).")
+		return ..()
+
 	if(blobstart.len > 0)
-		poi_list.Remove(src)
-		var/obj/item/weapon/disk/nuclear/NEWDISK = new(pick(blobstart))
-		transfer_fingerprints_to(NEWDISK)
-		var/turf/diskturf = get_turf(src)
-		message_admins("[src] has been destroyed in ([diskturf.x], [diskturf.y] ,[diskturf.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[diskturf.x];Y=[diskturf.y];Z=[diskturf.z]'>JMP</a>). Moving it to ([NEWDISK.x], [NEWDISK.y], [NEWDISK.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[NEWDISK.x];Y=[NEWDISK.y];Z=[NEWDISK.z]'>JMP</a>).")
-		log_game("[src] has been destroyed in ([diskturf.x], [diskturf.y] ,[diskturf.z]). Moving it to ([NEWDISK.x], [NEWDISK.y], [NEWDISK.z]).")
-		return QDEL_HINT_HARDDEL_NOW
+		var/turf/targetturf = get_turf(pick(blobstart))
+		if(ismob(loc))
+			var/mob/M = loc
+			M.remove_from_mob(src)
+		if(istype(loc, /obj/item/weapon/storage))
+			var/obj/item/weapon/storage/S = loc
+			S.remove_from_storage(src, targetturf)
+		forceMove(targetturf) //move the disc, so ghosts remain orbitting it even if it's "destroyed"
+		message_admins("[src] has been destroyed in ([diskturf ? "[diskturf.x], [diskturf.y] ,[diskturf.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[diskturf.x];Y=[diskturf.y];Z=[diskturf.z]'>JMP</a>":"nonexistent location"]). Moving it to ([targetturf.x], [targetturf.y], [targetturf.z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[targetturf.x];Y=[targetturf.y];Z=[targetturf.z]'>JMP</a>).")
+		log_game("[src] has been destroyed in ([diskturf ? "[diskturf.x], [diskturf.y] ,[diskturf.z]":"nonexistent location"]). Moving it to ([targetturf.x], [targetturf.y], [targetturf.z]).")
 	else
-		. = QDEL_HINT_LETMELIVE // Cancel destruction
 		throw EXCEPTION("Unable to find a blobstart landmark")
-		return
+	return QDEL_HINT_LETMELIVE //Cancel destruction unless forced

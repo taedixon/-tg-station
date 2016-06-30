@@ -3,7 +3,7 @@
 	desc = "A large metallic machine with an entrance and an exit. A sign on the side reads, 'human go in, robot come out', human must be lying down and alive. Has to cooldown between each use."
 	icon = 'icons/obj/recycling.dmi'
 	icon_state = "separator-AO1"
-	layer = MOB_LAYER+1 // Overhead
+	layer = ABOVE_ALL_MOB_LAYER // Overhead
 	anchored = 1
 	density = 0
 	var/transform_dead = 0
@@ -69,7 +69,6 @@
 	playsound(src.loc, 'sound/items/Welder.ogg', 50, 1)
 	H.emote("scream") // It is painful
 	H.adjustBruteLoss(max(0, 80 - H.getBruteLoss())) // Hurt the human, don't try to kill them though.
-	H.handle_regular_hud_updates() // Make sure they see the pain.
 
 	// Sleep for a couple of ticks to allow the human to see the pain
 	sleep(5)
@@ -97,10 +96,10 @@
 
 		//East
 		var/turf/east = locate(T.x + 1, T.y, T.z)
-		if(istype(east, /turf/simulated/floor))
+		if(istype(east, /turf/open/floor))
 			new /obj/machinery/conveyor/auto(east, WEST)
 
 		// West
 		var/turf/west = locate(T.x - 1, T.y, T.z)
-		if(istype(west, /turf/simulated/floor))
+		if(istype(west, /turf/open/floor))
 			new /obj/machinery/conveyor/auto(west, WEST)

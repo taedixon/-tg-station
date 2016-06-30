@@ -5,7 +5,7 @@
 	desc = "a large pulsating plant..."
 	icon = 'icons/effects/spacevines.dmi'
 	icon_state = "flower_bud"
-	layer = 4
+	layer = SPACEVINE_MOB_LAYER
 	opacity = 0
 	canSmoothWith = list()
 	smooth = SMOOTH_FALSE
@@ -49,6 +49,7 @@
 	name = "venus human trap"
 	desc = "now you know how the fly feels"
 	icon_state = "venus_human_trap"
+	layer = SPACEVINE_MOB_LAYER
 	health = 50
 	maxHealth = 50
 	ranged = 1
@@ -81,13 +82,13 @@
 				L.attack_animal(src)
 			else
 				if(prob(grasp_pull_chance))
-					dir = get_dir(src,L) //staaaare
+					setDir(get_dir(src,L) )//staaaare
 					step(L,get_dir(L,src)) //reel them in
 					L.Weaken(3) //you can't get away now~
 
 		if(grasping.len < max_grasps)
 			for(var/mob/living/L in range(grasp_range,src))
-				if(L == src)
+				if(L == src || faction_check(L))
 					continue
 				if(!(L in grasping) && L != target && prob(grasp_chance))
 					L << "<span class='userdanger'>\the [src] has you entangled!</span>"

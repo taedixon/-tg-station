@@ -11,7 +11,7 @@
 	force = 10
 	throwforce = 7
 	w_class = 3
-	origin_tech = "combat=4"
+	origin_tech = "combat=5"
 	attack_verb = list("flogged", "whipped", "lashed", "disciplined")
 	hitsound = 'sound/weapons/slash.ogg' //pls replace
 	materials = list(MAT_METAL = 1000)
@@ -56,6 +56,10 @@
 			if(!isrobot(target)) return
 		else
 			if(cooldown <= 0)
+				if(ishuman(target))
+					var/mob/living/carbon/human/H = target
+					if (H.check_shields(0, "[user]'s [name]", src, MELEE_ATTACK))
+						return
 				playsound(get_turf(src), 'sound/effects/woodhit.ogg', 75, 1, -1)
 				target.Weaken(3)
 				add_logs(user, target, "stunned", src)
@@ -89,7 +93,7 @@
 
 /obj/item/weapon/melee/classic_baton/telescopic/suicide_act(mob/user)
 	var/mob/living/carbon/human/H = user
-	var/obj/item/organ/internal/brain/B = H.getorgan(/obj/item/organ/internal/brain)
+	var/obj/item/organ/brain/B = H.getorgan(/obj/item/organ/brain)
 
 	user.visible_message("<span class='suicide'>[user] stuffs the [src] up their nose and presses the 'extend' button! It looks like they're trying to clear their mind.</span>")
 	if(!on)
@@ -139,12 +143,12 @@
 	armour_penetration = 1000
 	var/obj/machinery/power/supermatter_shard/shard
 	var/balanced = 1
-	origin_tech = "combat=5;materials=6"
+	origin_tech = "combat=7;materials=6"
 
 /obj/item/weapon/melee/supermatter_sword/New()
 	..()
 	shard = new /obj/machinery/power/supermatter_shard(src)
-	SSobj.processing += src
+	START_PROCESSING(SSobj, src)
 	visible_message("<span class='warning'>\The [src] appears, balanced ever so perfectly on its hilt. This isn't ominous at all.</span>")
 
 /obj/item/weapon/melee/supermatter_sword/process()
@@ -156,7 +160,7 @@
 		consume_everything(target)
 	else
 		var/turf/T = get_turf(src)
-		if(!istype(T,/turf/space))
+		if(!istype(T,/turf/open/space))
 			consume_turf(T)
 
 /obj/item/weapon/melee/supermatter_sword/afterattack(target, mob/user, proximity_flag)
@@ -170,7 +174,7 @@
 	..()
 	if(ismob(target))
 		var/mob/M
-		if(src.loc == M) //target caught the sword
+		if(src.loc == M)
 			M.drop_item()
 	consume_everything(target)
 
@@ -207,7 +211,8 @@
 		consume_turf(target)
 
 /obj/item/weapon/melee/supermatter_sword/proc/consume_turf(turf/T)
-	if(istype(T, T.baseturf))	return //Can't void the void, baby!
+	if(istype(T, T.baseturf))
+		return //Can't void the void, baby!
 	playsound(T, 'sound/effects/supermatter.ogg', 50, 1)
 	T.visible_message("<span class='danger'>\The [T] smacks into \the [src] and rapidly flashes to ash.</span>",\
 	"<span class='italics'>You hear a loud crack as you are washed with a wave of heat.</span>")
@@ -215,5 +220,5 @@
 	T.ChangeTurf(T.baseturf)
 	T.CalculateAdjacentTurfs()
 
-/obj/item/weapon/melee/supermatter_sword/add_blood()
-	return
+/obj/item/weapon/melee/supermatter_sword/add_blood(list/blood_dna)
+	return 0

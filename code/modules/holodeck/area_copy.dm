@@ -68,7 +68,7 @@
 
 	var/copiedobjs = list()
 
-	for (var/turf/simulated/T in refined_src)
+	for (var/turf/T in refined_src)
 		//var/datum/coords/C_src = refined_src[T]
 		var/coordstring = refined_src[T]
 		var/turf/B = refined_trg[coordstring]
@@ -76,38 +76,40 @@
 			continue
 
 		if(platingRequired)
-			if(istype(B, /turf/space))
+			if(istype(B, /turf/open/space))
 				continue
 
 		var/old_dir1 = T.dir
 		var/old_icon_state1 = T.icon_state
 		var/old_icon1 = T.icon
 
-		var/turf/simulated/X = new T.type(B)
-		X.dir = old_dir1
+		var/turf/X = new T.type(B)
+		X.setDir(old_dir1)
 		X.icon = old_icon1
 		X.icon_state = old_icon_state1
 
 		for(var/obj/O in T)
 			var/obj/O2 = DuplicateObject(O , 1, newloc = X, nerf=nerf_weapons)
 			if(!O2) continue
-			copiedobjs += O2.GetAllContents() + O2
+			copiedobjs += O2.GetAllContents()
 
 		for(var/mob/M in T)
 			if(istype(M, /mob/camera)) continue // If we need to check for more mobs, I'll add a variable
 			var/mob/SM = DuplicateObject(M , 1, newloc = X)
-			copiedobjs += SM.GetAllContents() + SM
+			copiedobjs += SM.GetAllContents()
 
 		var/global/list/forbidden_vars = list("type","stat","loc","locs","vars", "parent", "parent_type","verbs","ckey","key","x","y","z","contents", "luminosity")
 		for(var/V in T.vars - forbidden_vars)
 			if(V == "air")
-				X.air.copy_from(T.air)
+				var/turf/open/O1 = X
+				var/turf/open/O2 = T
+				O1.air.copy_from(O2.air)
 				continue
 			X.vars[V] = T.vars[V]
 		toupdate += X
 
 	if(toupdate.len)
-		for(var/turf/simulated/T1 in toupdate)
+		for(var/turf/T1 in toupdate)
 			T1.CalculateAdjacentTurfs()
 			SSair.add_to_active(T1,1)
 
