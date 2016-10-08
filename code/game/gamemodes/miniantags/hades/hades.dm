@@ -43,11 +43,17 @@
 	var/currentState = STATE_JUDGE
 	var/rageLevel = 0
 
+	var/maxWrathTimer = 150
+	var/lastWrathTimer = 0
+
+	var/timeBetweenGrabs = 60
+	var/lastGrabTime = 0
+
 	var/list/validSins = list("Greed","Gluttony","Pride","Lust","Envy","Sloth","Wrath")
 	var/lastsinPerson = 0
 	var/sinPersonTime = 300
 	var/lastFlee = 0
-	var/fleeTimer = 150
+	var/fleeTimer = 30
 	var/fakesinPersonChance = 60
 	var/list/sinPersonsayings = list("You revel in only your own greed.",\
 	"There is nothing but your absolution.",\
@@ -123,6 +129,18 @@
 			SpinAnimation(0,0)
 			explosion(get_turf(src), 0, 2, 4, 6, flame_range = 6)
 			..()
+			var/area/A = locate(/area/hades) in world
+			if(A)
+				var/turf/T = get_turf(locate(/obj/effect/landmark/event_spawn) in A)
+				if(T)
+					src.visible_message("<span class='warning'><font size=4>[src]'s Staff is flung free as their body explodes.</font></span>")
+					var/obj/structure/ladder/unbreakable/hades/churchLadder = new/obj/structure/ladder/unbreakable/hades(T)
+					var/obj/structure/ladder/unbreakable/hades/bodyLadder = new/obj/structure/ladder/unbreakable/hades(get_turf(src))
+					var/obj/item/weapon/hades_staff/HS = new/obj/item/weapon/hades_staff(get_turf(src))
+					HS.throw_at_fast(pick(orange(src,7)),10,1)
+					churchLadder.up = bodyLadder
+					bodyLadder.down = churchLadder
+					qdel(src)
 
 /mob/living/simple_animal/hostile/hades/attackby(obj/item/I, mob/user, params)
 	..()
@@ -191,9 +209,7 @@
 	var/obj/effect/overlay/temp/cult/sparks/S = PoolOrNew(/obj/effect/overlay/temp/cult/sparks, T)
 	S.anchored = FALSE
 	S.throw_at_fast(src,10,1)
-	var/obj/effect/overlay/temp/bloodsplatter/BS = PoolOrNew(/obj/effect/overlay/temp/bloodsplatter, list(T, get_dir(src, T)))
-	BS.anchored = FALSE
-	BS.throw_at_fast(src,10,1)
+	PoolOrNew(/obj/effect/overlay/temp/hadesBlood, T)
 
 /mob/living/simple_animal/hostile/hades/proc/Transfer(var/mob/living/taken, var/turf/transferTarget)
 	if(transferTarget)
@@ -210,14 +226,24 @@
 	if(..() && !isDoingDeath) // appropriately check if we're alive now we leave a corpse
 		if(health > maxHealth/4 && !isFleeing)
 			if(rageLevel > 50)
+				lastWrathTimer = world.time
 				currentState = STATE_WRATH
-			else if(rageLevel <= 0)
+			else
 				currentState = STATE_JUDGE
 		else
 			if(world.time > lastFlee + fleeTimer)
 				lastFlee = world.time
 				isFleeing = TRUE
 				currentState = STATE_FLEE
+
+		var/area/healthCheck = get_area(src)
+
+		if(istype(healthCheck,/area/chapel/main))
+			if(currentState == STATE_FLEE)
+				lastWrathTimer = world.time
+				currentState = STATE_WRATH
+			if(health < maxHealth/2)
+				health += 10 // slowly regain hp in the chapel, up to a maximum of half our max
 
 		var/spokenThisTurn = FALSE
 		for(var/mob/living/A in currentAcolytes)
@@ -236,12 +262,29 @@
 					A.gib()
 
 		if(currentState == STATE_WRATH) // we have been enraged.
-			rageLevel -= 0.25 // rage phase starts at 50, meaning roughly 20s of rage.
+			if(world.time > lastWrathTimer + maxWrathTimer)
+				rageLevel = 0 // wind down if we're wrathful too long.
+			rageLevel -= 1 // rage phase starts at 50, meaning roughly 20s of rage.
 			if(currentAcolytes.len == 0)
 				src.say("Rise, Servants. AID YOUR MASTER.")
 				playsound(get_turf(src), 'sound/magic/CastSummon.ogg', 100, 1)
 				for(var/i in 1 to 5)
-					currentAcolytes += new/mob/living/simple_animal/hostile/hadesacolyte(get_turf(src))
+					var/mob/living/simple_animal/hostile/hadesacolyte/HA = new/mob/living/simple_animal/hostile/hadesacolyte(get_turf(pick(orange(2,src))))
+					HA.master = src
+					currentAcolytes += HA
+			if(target)
+				if(world.time > lastGrabTime + timeBetweenGrabs)
+					if(get_dist(src,target) > 4) // you can't run from us. upped to 4 to give more leeway.
+						lastGrabTime = world.time
+						var/list/fleeSayings = list("There is no escape from your sins, [target]","Fleeing will only make your punishment worse [target]!",\
+						"There is nowhere you can hide, [target]!","You can't run, [target]!","Get back here, [target]!","You coward, [target]!",\
+						"I will find you, [target]!","Return to me, [target]!")
+						src.say(pick(fleeSayings))
+						var/mob/living/toGrab = target
+						toGrab.Beam(src,"blood",'icons/effects/beam.dmi',10)
+						toGrab.Weaken(6)
+						playsound(get_turf(src), 'sound/magic/CastSummon.ogg', 100, 1)
+						toGrab.throw_at_fast(src,10,1)
 			if(rageLevel >= 100)
 				rageLevel = 50
 				var/list/overboardSayings = list("Ashes! It will all be ashes!","I will bring about the apocolypse!",\
@@ -252,14 +295,22 @@
 				var/turf/StartLoc = get_turf(src)
 				var/list/nearby = orange(6,src)
 				var/slashCount = 0
+				var/aoeType = rand(1,2) // just for future proofing
 				for(var/mob/living/A in nearby)
-					if(A.ckey)
-						slashCount++
-						spawn(slashCount+3)
+					slashCount++
+					A.Beam(src,"blood",'icons/effects/beam.dmi',10)
+					spawn(slashCount + 3)
+						if(aoeType == 1)
+							// no more cheaping it out with non-player mobs like turrets or carps
 							loc = get_turf(A)
 							sinShed(StartLoc)
 							A.attack_animal(src)
+							PoolOrNew(/obj/effect/overlay/temp/hadesBlood,get_turf(A))
 							playsound(get_turf(A), 'sound/magic/SummonItems_generic.ogg', 100, 1)
+						if(aoeType == 2)
+							sinShed(StartLoc)
+							PoolOrNew(/obj/effect/overlay/temp/hadesBite,get_turf(A))
+							A.Weaken(6)
 				var/obj/effect/timestop/hades/large/TS = new /obj/effect/timestop/hades/large(StartLoc)
 				TS.immune = list(src)
 				spawn((slashCount+1)+3)
@@ -322,89 +373,150 @@
 									src.say("Your sin, [sinPerson], is Greed.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										var/list/greed = list(/obj/item/stack/sheet/mineral/gold,/obj/item/stack/sheet/mineral/silver,/obj/item/stack/sheet/mineral/diamond)
-										for(var/i in 1 to 10)
-											var/greed_type = pick(greed)
-											new greed_type(get_turf(sinPerson))
+										sin_Greed(sinPerson, TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										var/mob/living/M = sinPerson.change_mob_type(/mob/living/simple_animal/cockroach,get_turf(sinPerson),"Greedroach",1)
-										M.AddSpell(new/obj/effect/proc_holder/spell/targeted/mind_transfer)
+										sin_Greed(sinPerson, FALSE)
 								if("Gluttony")
 									src.say("Your sin, [sinPerson], is Gluttony.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										var/list/allTypes = list()
-										for(var/A in typesof(/obj/item/weapon/reagent_containers/food/snacks))
-											var/obj/item/weapon/reagent_containers/food/snacks/O = A
-											if(initial(O.cooked_type))
-												allTypes += A
-										for(var/i in 1 to 10)
-											var/greed_type = pick(allTypes)
-											new greed_type(get_turf(sinPerson))
+										sin_Gluttony(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										sinPerson.reagents.add_reagent("nutriment",1000)
+										sin_Gluttony(sinPerson,FALSE)
 								if("Pride")
 									src.say("Your sin, [sinPerson], is Pride.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										var/obj/item/weapon/twohanded/sin_pride/good = new/obj/item/weapon/twohanded/sin_pride(get_turf(sinPerson))
-										good.pride_direction = FALSE
+										sin_Pride(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										var/obj/item/weapon/twohanded/sin_pride/bad = new/obj/item/weapon/twohanded/sin_pride(get_turf(sinPerson))
-										bad.pride_direction = TRUE
+										sin_Pride(sinPerson,FALSE)
 								if("Lust")
 									src.say("Your sin, [sinPerson], is Lust.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										var/obj/item/lovestone/good = new/obj/item/lovestone(get_turf(sinPerson))
-										good.lust_direction = FALSE
+										sin_Lust(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										var/obj/item/lovestone/bad = new/obj/item/lovestone(get_turf(sinPerson))
-										bad.lust_direction = TRUE
+										sin_Lust(sinPerson,TRUE)
 								if("Envy")
 									src.say("Your sin, [sinPerson], is Envy.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										for(var/mob/living/carbon/human/H in player_list) // name lottery
-											if(H == sinPerson)
-												continue
-											if(prob(25))
-												spawn(10)
-													sinPerson.name = H.name
-													sinPerson.real_name = H.real_name
-													var/datum/dna/lottery = H.dna
-													lottery.transfer_identity(sinPerson, transfer_SE=1)
-													sinPerson.updateappearance(mutcolor_update=1)
-													sinPerson.domutcheck()
+										sin_Envy(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										var/sinPersonspecies = pick(species_list)
-										var/newtype = species_list[sinPersonspecies]
-										sinPerson.set_species(newtype)
+										sin_Envy(sinPerson,FALSE)
 								if("Sloth")
 									src.say("Your sin, [sinPerson], is Sloth.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										sinPerson.drowsyness += 1000
+										sin_Sloth(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										sinPerson.reagents.add_reagent("frostoil", 50)
+										sin_Sloth(sinPerson,FALSE)
 								if("Wrath")
 									src.say("Your sin, [sinPerson], is Wrath.")
 									if(prob(50))
 										src.say("I will indulge your sin, [sinPerson].")
-										sinPerson.change_mob_type(/mob/living/simple_animal/slaughter,get_turf(sinPerson),"Wrath Demon",1)
+										sin_Wrath(sinPerson,TRUE)
 									else
 										src.say("Your sin will be punished, [sinPerson]!")
-										sinPerson.reagents.add_reagent("lexorin", 100)
-										sinPerson.reagents.add_reagent("mindbreaker", 100)
+										sin_Wrath(sinPerson,FALSE)
 
 
 ///Sin related things
+
+//global Sin procs, shared between staff and pope
+
+/proc/sin_Greed(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>You feel like you deserve more, in fact, you want everything.</span>"
+		var/list/greed = list(/obj/item/stack/sheet/mineral/gold,/obj/item/stack/sheet/mineral/silver,/obj/item/stack/sheet/mineral/diamond)
+		for(var/i in 1 to 10)
+			var/greed_type = pick(greed)
+			new greed_type(get_turf(sinPerson))
+	else
+		sinPerson << "<span class='warning'>Your body begins to shift and bend, changing to reflect your inner greed.</span>"
+		var/mob/living/M = sinPerson.change_mob_type(/mob/living/simple_animal/cockroach,get_turf(sinPerson),"Greedroach",1)
+		M.AddSpell(new/obj/effect/proc_holder/spell/targeted/mind_transfer)
+
+/proc/sin_Gluttony(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>Your stomach growls, you feel hungry.</span>"
+		var/list/allTypes = list()
+		for(var/A in typesof(/obj/item/weapon/reagent_containers/food/snacks))
+			var/obj/item/weapon/reagent_containers/food/snacks/O = A
+			if(initial(O.cooked_type))
+				allTypes += A
+		for(var/i in 1 to 10)
+			var/greed_type = pick(allTypes)
+			new greed_type(get_turf(sinPerson))
+	else
+		sinPerson << "<span class='warning'>Your body begins to bloat and stretch, bile rising in your throat.</span>"
+		sinPerson.reagents.add_reagent("nutriment",1000)
+
+/proc/sin_Pride(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>You feel strong enough to take on the world.</span>"
+		var/obj/item/weapon/twohanded/sin_pride/good = new/obj/item/weapon/twohanded/sin_pride(get_turf(sinPerson))
+		good.name = "Indulged [good.name]"
+		good.pride_direction = FALSE
+	else
+		sinPerson << "<span class='warning'>You feel small and weak, like the entire world is against you.</span>"
+		var/obj/item/weapon/twohanded/sin_pride/bad = new/obj/item/weapon/twohanded/sin_pride(get_turf(sinPerson))
+		bad.name = "Punished [bad.name]"
+		bad.pride_direction = TRUE
+
+/proc/sin_Lust(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>You feel confident, like everything and everyone is drawn to you.</span>"
+		var/obj/item/lovestone/good = new/obj/item/lovestone(get_turf(sinPerson))
+		good.name = "Indulged [good.name]"
+		good.lust_direction = FALSE
+	else
+		sinPerson << "<span class='warning'>You feel lonely... the wish for the warmth of another spark through your mind.</span>"
+		var/obj/item/lovestone/bad = new/obj/item/lovestone(get_turf(sinPerson))
+		bad.name = "Punished [bad.name]"
+		bad.lust_direction = TRUE
+
+/proc/sin_Envy(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		for(var/mob/living/carbon/human/H in player_list) // name lottery
+			if(H == sinPerson)
+				continue
+			if(prob(25))
+				sinPerson.name = H.name
+				sinPerson.real_name = H.real_name
+				var/datum/dna/lottery = H.dna
+				lottery.transfer_identity(sinPerson, transfer_SE=1)
+				sinPerson.updateappearance(mutcolor_update=1)
+				sinPerson.domutcheck()
+		sinPerson << "<span class='warning'>You feel envious of [sinPerson.name], and your body shifts to reflect that!</span>"
+	else
+		var/sinPersonspecies = pick(species_list)
+		var/newtype = species_list[sinPersonspecies]
+		sinPerson << "<span class='warning'>You wish for more from yourself.. your body shifts to suit your wish.</span>"
+		sinPerson.set_species(newtype)
+
+/proc/sin_Sloth(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>You feel tired...</span>"
+		sinPerson.drowsyness += 100
+	else
+		sinPerson << "<span class='warning'>A chill comes over your body, the feeling of frostbite nipping at your fingers.</span>"
+		sinPerson.reagents.add_reagent("frostoil", 50)
+
+/proc/sin_Wrath(var/mob/living/carbon/human/sinPerson, var/isIndulged)
+	if(isIndulged)
+		sinPerson << "<span class='warning'>You feel wrathful, like you want to destroy everyone and everything.</span>"
+		sinPerson.change_mob_type(/mob/living/simple_animal/slaughter,get_turf(sinPerson),"Wrath Demon",1)
+	else
+		sinPerson << "<span class='warning'>Your chest feels tight, and the world begins to spin around you.</span>"
+		sinPerson.reagents.add_reagent("lexorin", 29)
+		sinPerson.reagents.add_reagent("mindbreaker", 29)
 
 /obj/effect/overlay/temp/hadesFlick
 	name = "transdimensional waste"
@@ -412,7 +524,17 @@
 	icon_state = "liquify"
 	duration = 15
 
+/obj/effect/overlay/temp/hadesBite
+	name = "biting tendril"
+	icon = 'icons/effects/effects.dmi'
+	icon_state = "tendril_bite"
+	duration = 15
 
+/obj/effect/overlay/temp/hadesBlood
+	name = "blood plume"
+	icon = 'icons/effects/128x128.dmi'
+	icon_state = "spray_plume"
+	duration = 30
 
 /obj/effect/timestop/hades // custom timeslip to make him immune
 	name = "Frozen Time"
@@ -424,6 +546,8 @@
 
 /obj/effect/timestop/hades/large
 	freezerange = 6
+	icon_state = "huge_rune"
+	icon = 'icons/effects/224x224.dmi'
 
 
 /obj/item/weapon/twohanded/sin_pride
@@ -434,8 +558,8 @@
 	throwforce = 15
 	w_class = 4
 	slot_flags = SLOT_BACK
-	force_unwielded = 8
-	force_wielded = 18
+	force_unwielded = 5
+	force_wielded = 20
 	attack_verb = list("attacked", "smashed", "crushed", "splattered", "cracked")
 	hitsound = 'sound/weapons/blade1.ogg'
 	var/pride_direction = FALSE
@@ -448,16 +572,27 @@
 	if(!proximity) return
 	if(wielded)
 		if(istype(A,/mob/living/carbon/human))
-			var/mob/living/carbon/human/H = A
+			var/mob/living/carbon/H = A
+			var/mob/living/carbon/U = user
 			if(H)
 				if(pride_direction == FALSE)
-					user.reagents.trans_to(H, user.reagents.total_volume, 1, 1, 0)
-					user << "Your pride reflects on [H]."
+					U.reagents.trans_to(H, user.reagents.total_volume, 1, 1, 0)
+					U << "Your pride reflects on [H]."
+					if(H.health > 0)
+						U.health += force
+						U.updatehealth()
+						H.health -= force
+						H.updatehealth()
 					H << "You feel insecure, taking on [user]'s burden."
-				else if(pride_direction == 1)
+				else if(pride_direction == TRUE)
 					H.reagents.trans_to(user, H.reagents.total_volume, 1, 1, 0)
 					H << "Your pride reflects on [user]."
-					user << "You feel insecure, taking on [H]'s burden."
+					if(U.health > 0)
+						U.health -= force
+						U.updatehealth()
+						H.health += force
+						H.updatehealth()
+					U << "You feel insecure, taking on [H]'s burden."
 
 /obj/item/lovestone
 	name = "Stone of Lust"
@@ -489,8 +624,7 @@
 				if(!foundLover)
 					H << "As you hold the stone, loneliness grips you, your heart feeling heavy and you struggle to breath."
 					for(var/i in 1 to 10)
-						spawn(i*10)
-							H.reagents.add_reagent("initropidril",i)
+						addtimer(H.reagents, "add_reagent", i*10, FALSE, "initropidril", i)
 				else
 					H << "You take comfort in the presence of [foundLover]"
 					H.reagents.add_reagent("omnizine",25)
@@ -503,9 +637,9 @@
 /mob/living/simple_animal/hostile/hadesacolyte
 	name = "Acolyte of Hades"
 	desc = "Darkness seethes from their every pore."
-	icon_state = "faithless"
-	icon_living = "faithless"
-	icon_dead = "faithless_dead"
+	icon_state = "hades_acolyte"
+	icon_living = "hades_acolyte"
+	icon_dead = "hades_acolyte_dead"
 	speak_chance = 0
 	turns_per_move = 5
 	response_help = "trembles in fear of"
@@ -521,9 +655,107 @@
 	attacktext = "strikes at"
 	attack_sound = 'sound/weapons/bladeslice.ogg'
 
+	butcher_results = list(/obj/item/clothing/mask/gas/cyborg/hades = 1,/obj/item/clothing/suit/hooded/chaplain_hoodie/hades = 1,/obj/item/weapon/hades_staff/fake = 1)
+
 	unsuitable_atmos_damage = 0
 	del_on_death = 0
 	faction = list("hades")
+
+	var/mob/living/simple_animal/hostile/hades/master
+
+/mob/living/simple_animal/hostile/hadesacolyte/Life()
+	if(..())
+		if(master)
+			if(get_dist(src,master) > 5)
+				PoolOrNew(/obj/effect/overlay/temp/hadesFlick,get_turf(src))
+				src.visible_message("<span class='warning'>[src] twists and distorts, before vanishing in a snap.</span>")
+				src.forceMove(get_turf(pick(orange(2,master))))
+
+//acolyte of hades outfit
+/obj/item/clothing/mask/gas/cyborg/hades
+	name = "Skull Mask"
+	desc = "It's a skull mask, made of a thin, cool metal."
+
+/obj/item/clothing/suit/hooded/chaplain_hoodie/hades
+	name = "Dark robes"
+	desc = "A dark, soft robe."
+	hooded = 1
+	hoodtype = /obj/item/clothing/head/chaplain_hood/hades
+
+/obj/item/clothing/head/chaplain_hood/hades
+	name = "Dark hood"
+	desc = "A dark, soft hood."
+	body_parts_covered = HEAD
+	flags_inv = HIDEHAIR|HIDEEARS
+//end hades outfit
+
+/obj/item/hades_summoner
+	name = "Dark Seed"
+	desc = "The stone lays inert, but even when holding it you hear maddened whispers."
+	icon = 'icons/obj/wizard.dmi'
+	icon_state = "dark_seed_inert"
+	item_state = "dark_seed_inert"
+	w_class = 1
+	var/isActivated = FALSE
+	var/whoActivated
+	var/countDownToSummon = 10
+	var/absorbedHP = 0
+
+/obj/item/hades_summoner/attack_self(mob/user)
+	if(!isActivated)
+		var/choice = input(user,"Rub the stone?",name) in list("Yes","No")
+		if(choice == "Yes")
+			if(prob(15))
+				user << "<span class='warning'><font size=3>You rub the stone.. and a voice springs fourth!</font></span>"
+				user << "<span class='warning'><font size=3>You hear a voice in your head.. 'Bring me the flesh of a living being.. and we shall bargain.'</font></span>"
+				whoActivated = user
+				isActivated = TRUE
+				desc = "The stone hums with a soft glow, whispering to you."
+				icon_state = "dark_seed"
+			else
+				user << "<span class='warning'><font size=3>The stone shivers, but nothing happens. Perhaps try again later?</font></span>"
+	else
+		if(user != whoActivated)
+			user << "<span class='warning'><font size=3>The stone lays inert.</font></span>"
+		else
+			if(countDownToSummon > 0)
+				user << "<span class='warning'><font size=3>You hear a voice in your head.. 'I still require [countDownToSummon] vessels worth of flesh. Bring them to me'</font></span>"
+			else
+				user << "<span class='warning'><font size=3>I thank you, acolyte.</font></span>"
+				var/mob/living/simple_animal/hostile/hadesacolyte/HA = user.change_mob_type(/mob/living/simple_animal/hostile/hadesacolyte,get_turf(user),"[user.name]",1)
+				var/mob/living/simple_animal/hostile/hades/H = new/mob/living/simple_animal/hostile/hades(get_turf(user))
+				H.maxHealth = absorbedHP
+				H.health = H.maxHealth
+				if(H.maxHealth < initial(H.maxHealth))
+					HA << "<span class='warning'><font size=3>You.. you fool! How dare you summon me with such dirty flesh!</font></span>"
+					HA.faction -= "hades"
+				if(H.maxHealth > initial(H.maxHealth))
+					HA << "<span class='warning'><font size=3>Such.. power! You have exceeded yourself, acolyte. Drink of my might!</font></span>"
+					HA.maxHealth = 250
+					HA.health = 250
+				qdel(src)
+
+/obj/item/hades_summoner/afterattack(atom/A as mob|obj|turf|area, mob/user, proximity)
+	if(!proximity)
+		return
+	if(istype(A,/mob/living))
+		var/mob/living/M = A
+		if(countDownToSummon > 0)
+			if(M.health > 0 && M.maxHealth > 200)
+				// no absorbing super strong creatures unless they're dead
+				user << "<span class='warning'><font size=3>Such power.. Slay this [M] so that I may partake of its being.</font></span>"
+				return
+			user << "<span class='warning'><font size=3>I accept your offering.</font></span>"
+			absorbedHP += M.maxHealth
+			if(!M.ckey)
+				M.gib()
+			else
+				M << "<span class='warning'><font size=3>You feel the flesh being stripped from your bones. You're overwhelmed with maddening pain, before reforming into another being!</font></span>"
+				M.change_mob_type(/mob/living/simple_animal/hostile/hadesacolyte,get_turf(user),"[user.name]",1)
+			countDownToSummon--
+			if(countDownToSummon <= 0)
+				user << "<span class='warning'><font size=3>I am ready to ascend, my acolyte.</font></span>"
+
 
 #undef STATE_JUDGE
 #undef STATE_WRATH

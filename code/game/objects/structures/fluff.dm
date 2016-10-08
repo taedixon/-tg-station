@@ -35,6 +35,12 @@
 	icon = 'icons/obj/Cryogenic2.dmi'
 	icon_state = "sleeper-open"
 
+/obj/structure/fluff/empty_sleeper/nanotrasen
+	name = "broken hypersleep chamber"
+	desc = "A NanoTrasen hypersleep chamber - this one appears broken. \
+		There are exposed bolts for easy disassembly using a wrench."
+	icon_state = "sleeper-o"
+
 /obj/structure/fluff/empty_sleeper/syndicate
 	icon_state = "sleeper_s-open"
 
@@ -43,3 +49,9 @@
 	desc = "Although comfortable, this sleeper won't function as anything but a bed ever again."
 	icon = 'icons/obj/lavaland/spawners.dmi'
 	icon_state = "cryostasis_sleeper_open"
+
+/obj/structure/fluff/broken_flooring
+	name = "broken tiling"
+	desc = "A segment of broken flooring"
+	icon = 'icons/obj/brokentiling.dmi'
+	icon_state = "corner"

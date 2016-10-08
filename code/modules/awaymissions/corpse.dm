@@ -6,7 +6,7 @@
 	name = "Unknown"
 	var/mob_type = null
 	var/mob_name = ""
-	var/mob_gender = MALE
+	var/mob_gender = null
 	var/death = TRUE //Kill the mob
 	var/roundstart = TRUE //fires on initialize
 	var/instant = FALSE	//fires on New
@@ -54,7 +54,7 @@
 
 /obj/effect/mob_spawn/Destroy()
 	poi_list.Remove(src)
-	..()
+	. = ..()
 
 /obj/effect/mob_spawn/proc/special(mob/M)
 	return
@@ -66,6 +66,8 @@
 	var/mob/living/M = new mob_type(get_turf(src)) //living mobs only
 	if(!random)
 		M.real_name = mob_name ? mob_name : M.name
+		if(!mob_gender)
+			mob_gender = pick(MALE, FEMALE)
 		M.gender = mob_gender
 	if(faction)
 		M.faction = list(faction)
@@ -350,9 +352,9 @@
 	id_access = "Scientist"
 
 /obj/effect/mob_spawn/human/miner
-	radio = /obj/item/device/radio/headset/headset_cargo
+	radio = /obj/item/device/radio/headset/headset_cargo/mining
 	uniform = /obj/item/clothing/under/rank/miner
-	gloves = /obj/item/clothing/gloves/fingerless
+	gloves = /obj/item/clothing/gloves/color/black
 	back = /obj/item/weapon/storage/backpack/industrial
 	shoes = /obj/item/clothing/shoes/sneakers/black
 	has_id = 1
@@ -365,9 +367,11 @@
 
 /obj/effect/mob_spawn/human/miner/explorer
 	uniform = /obj/item/clothing/under/rank/miner/lavaland
-	gloves = /obj/item/clothing/gloves/color/black
-	back = /obj/item/weapon/storage/backpack/security
-	shoes = /obj/item/clothing/shoes/jackboots
+	back = /obj/item/weapon/storage/backpack/explorer
+	shoes = /obj/item/clothing/shoes/workboots/mining
+	suit = /obj/item/clothing/suit/hooded/explorer
+	mask = /obj/item/clothing/mask/gas/explorer
+	belt = /obj/item/weapon/gun/energy/kinetic_accelerator
 
 /obj/effect/mob_spawn/human/plasmaman
 	mob_species = /datum/species/plasmaman

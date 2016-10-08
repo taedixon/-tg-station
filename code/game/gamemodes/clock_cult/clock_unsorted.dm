@@ -2,6 +2,7 @@
 /datum/action/innate/function_call
 	name = "Function Call"
 	button_icon_state = "ratvarian_spear"
+	background_icon_state = "bg_clock"
 	check_flags = AB_CHECK_RESTRAINED|AB_CHECK_STUNNED|AB_CHECK_CONSCIOUS
 
 /datum/action/innate/function_call/IsAvailable()
@@ -63,8 +64,8 @@
 		time_duration *= 2
 	invoker.visible_message("<span class='warning'>The air in front of [invoker] ripples before suddenly tearing open!</span>", \
 	"<span class='brass'>With a word, you rip open a [two_way ? "two-way":"one-way"] rift to [input_target_key]. It will last for [time_duration / 10] seconds and has [gateway_uses] use[gateway_uses > 1 ? "s" : ""].</span>")
-	var/obj/effect/clockwork/spatial_gateway/S1 = new(istype(src, /obj/structure/clockwork/powered/clockwork_obelisk) ? src.loc : get_step(invoker, invoker.dir))
-	var/obj/effect/clockwork/spatial_gateway/S2 = new(istargetobelisk ? target.loc : get_step(target, target.dir))
+	var/obj/effect/clockwork/spatial_gateway/S1 = new(istype(src, /obj/structure/clockwork/powered/clockwork_obelisk) ? get_turf(src) : get_step(get_turf(invoker), invoker.dir))
+	var/obj/effect/clockwork/spatial_gateway/S2 = new(istargetobelisk ? get_turf(target) : get_step(get_turf(target), target.dir))
 
 	//Set up the portals now that they've spawned
 	S1.setup_gateway(S2, time_duration, gateway_uses, two_way)
@@ -87,14 +88,14 @@
 			if(servants >= 5 && clockwork_caches)
 				return 1 //5 or more non-brain servants and any number of clockwork caches
 		if(SCRIPTURE_APPLICATION)
-			if(servants >= 8 && clockwork_caches >= 3 && clockwork_construction_value >= 50)
-				return 1 //8 or more non-brain servants, 3+ clockwork caches, and at least 50 CV
+			if(servants >= 8 && clockwork_caches >= 3 && clockwork_construction_value >= 75)
+				return 1 //8 or more non-brain servants, 3+ clockwork caches, and at least 75 CV
 		if(SCRIPTURE_REVENANT)
-			if(servants >= 10 && clockwork_caches >= 3 && clockwork_construction_value >= 100)
-				return 1 //10 or more non-brain servants, 3+ clockwork caches, and at least 100 CV
+			if(servants >= 10 && clockwork_caches >= 4 && clockwork_construction_value >= 150)
+				return 1 //10 or more non-brain servants, 4+ clockwork caches, and at least 150 CV
 		if(SCRIPTURE_JUDGEMENT)
-			if(servants >= 10 && clockwork_caches >= 3 && clockwork_construction_value >= 100 && !unconverted_ai_exists)
-				return 1 //10 or more non-brain servants, 3+ clockwork caches, at least 100 CV, and there are no living, non-servant ais
+			if(servants >= 12 && clockwork_caches >= 5 && clockwork_construction_value >= 250 && !unconverted_ai_exists)
+				return 1 //12 or more non-brain servants, 5+ clockwork caches, at least 250 CV, and there are no living, non-servant ais
 	return 0
 
 /proc/generate_cache_component(specific_component_id) //generates a component in the global component cache, either random based on lowest or a specific component
@@ -117,6 +118,25 @@
 		"guvax_capacitor" = max(MAX_COMPONENTS_BEFORE_RAND - LOWER_PROB_PER_COMPONENT*clockwork_component_cache["guvax_capacitor"], 1), \
 		"replicant_alloy" = max(MAX_COMPONENTS_BEFORE_RAND - LOWER_PROB_PER_COMPONENT*clockwork_component_cache["replicant_alloy"], 1), \
 		"hierophant_ansible" = max(MAX_COMPONENTS_BEFORE_RAND - LOWER_PROB_PER_COMPONENT*clockwork_component_cache["hierophant_ansible"], 1)))
+
+/proc/clockwork_say(atom/movable/AM, message, whisper=FALSE)
+	// When servants invoke ratvar's power, they speak in ways that non
+	// servants do not comprehend.
+	// Our ratvarian chants are stored in their ratvar forms
+
+	var/list/spans = list(SPAN_ROBOT)
+
+	var/old_languages_spoken = AM.languages_spoken
+	AM.languages_spoken = HUMAN //anyone who can understand HUMAN will hear weird shitty ratvar speak, otherwise it'll get starred out
+	if(isliving(AM))
+		var/mob/living/L = AM
+		if(!whisper)
+			L.say(message, "clock", spans)
+		else
+			L.whisper(message)
+	else
+		AM.say(message)
+	AM.languages_spoken = old_languages_spoken
 
 /*
 

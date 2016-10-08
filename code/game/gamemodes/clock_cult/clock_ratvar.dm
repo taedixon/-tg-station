@@ -23,6 +23,7 @@
 	icon = 'icons/effects/clockwork_effects.dmi'
 	icon_state = "nothing"
 	density = TRUE
+	can_be_repaired = FALSE
 	var/progress_in_seconds = 0 //Once this reaches GATEWAY_RATVAR_ARRIVAL, it's game over
 	var/purpose_fulfilled = FALSE
 	var/first_sound_played = FALSE
@@ -196,8 +197,7 @@
 	var/image/alert_overlay = image('icons/effects/clockwork_effects.dmi', "ratvar_alert")
 	var/area/A = get_area(src)
 	notify_ghosts("The Justiciar's light calls to you! Reach out to Ratvar in [A.name] to be granted a shell to spread his glory!", null, source = src, alert_overlay = alert_overlay)
-	spawn(50)
-		SSshuttle.emergency.request(null, 0.3)
+	addtimer(SSshuttle.emergency, "request", 50, FALSE, null, 0.3)
 
 
 /obj/structure/clockwork/massive/ratvar/Destroy()
@@ -210,10 +210,16 @@
 
 
 /obj/structure/clockwork/massive/ratvar/attack_ghost(mob/dead/observer/O)
-	if(alert(O, "Embrace the Justiciar's light? You can no longer be cloned!",,"Yes", "No") == "No" || !O)
+	var/alertresult = alert(O, "Embrace the Justiciar's light? You can no longer be cloned!",,"Cogscarab", "Reclaimer", "No")
+	if(alertresult == "No" || !O)
 		return 0
-	var/mob/living/simple_animal/hostile/clockwork/reclaimer/R = new(get_turf(src))
-	R.visible_message("<span class='warning'>[R] forms and hums to life!</span>")
+	var/mob/living/simple_animal/R
+	if(alertresult == "Cogscarab")
+		R = new/mob/living/simple_animal/drone/cogscarab/ratvar(get_turf(src))
+		R.visible_message("<span class='heavy_brass'>[R] forms, and its eyes blink open, glowing bright red!</span>")
+	else
+		R = new/mob/living/simple_animal/hostile/clockwork/reclaimer(get_turf(src))
+		R.visible_message("<span class='heavy_brass'>[R] forms, and it emits a faint hum!</span>")
 	R.key = O.key
 
 
