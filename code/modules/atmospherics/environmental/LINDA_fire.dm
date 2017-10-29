@@ -12,12 +12,12 @@
 	if(!air_contents)
 		return 0
 
-	var/oxy = air_contents.gases["o2"] ? air_contents.gases["o2"][MOLES] : 0
-	var/tox = air_contents.gases["plasma"] ? air_contents.gases["plasma"][MOLES] : 0
-
+	var/oxy = air_contents.gases[/datum/gas/oxygen] ? air_contents.gases[/datum/gas/oxygen][MOLES] : 0
+	var/tox = air_contents.gases[/datum/gas/plasma] ? air_contents.gases[/datum/gas/plasma][MOLES] : 0
+	var/trit = air_contents.gases[/datum/gas/tritium] ? air_contents.gases[/datum/gas/tritium][MOLES] : 0
 	if(active_hotspot)
 		if(soh)
-			if(tox > 0.5 && oxy > 0.5)
+			if((tox > 0.5 || trit > 0.5) && oxy > 0.5)
 				if(active_hotspot.temperature < exposed_temperature)
 					active_hotspot.temperature = exposed_temperature
 				if(active_hotspot.volume < exposed_volume)
@@ -26,14 +26,14 @@
 
 	var/igniting = 0
 
-	if((exposed_temperature > PLASMA_MINIMUM_BURN_TEMPERATURE) && tox > 0.5)
+	if((exposed_temperature > PLASMA_MINIMUM_BURN_TEMPERATURE) && (tox > 0.5 || trit > 0.5))
 		igniting = 1
 
 	if(igniting)
-		if(oxy < 0.5 || tox < 0.5)
+		if(oxy < 0.5)
 			return 0
 
-		active_hotspot = PoolOrNew(/obj/effect/hotspot, src)
+		active_hotspot = new /obj/effect/hotspot(src)
 		active_hotspot.temperature = exposed_temperature
 		active_hotspot.volume = exposed_volume
 
@@ -44,13 +44,13 @@
 
 //This is the icon for fire on turfs, also helps for nurturing small fires until they are full tile
 /obj/effect/hotspot
-	anchored = 1
-	mouse_opacity = 0
-	unacidable = 1//So you can't melt fire with acid.
+	anchored = TRUE
+	mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 	icon = 'icons/effects/fire.dmi'
 	icon_state = "1"
 	layer = ABOVE_OPEN_TURF_LAYER
-	luminosity = 3
+	light_range = LIGHT_RANGE_FIRE
+	light_color = LIGHT_COLOR_FIRE
 
 	var/volume = 125
 	var/temperature = FIRE_MINIMUM_TEMPERATURE_TO_EXIST
@@ -61,14 +61,15 @@
 	..()
 	SSair.hotspots += src
 	perform_exposure()
-	setDir(pick(cardinal))
+	setDir(pick(GLOB.cardinals))
 	air_update_turf()
-
 
 /obj/effect/hotspot/proc/perform_exposure()
 	var/turf/open/location = loc
 	if(!istype(location) || !(location.air))
 		return 0
+
+	location.active_hotspot = src
 
 	if(volume > CELL_VOLUME*0.95)
 		bypassing = 1
@@ -77,20 +78,20 @@
 
 	if(bypassing)
 		if(!just_spawned)
-			volume = location.air.fuel_burnt*FIRE_GROWTH_RATE
+			volume = location.air.reaction_results["fire"]*FIRE_GROWTH_RATE
 			temperature = location.air.temperature
 	else
 		var/datum/gas_mixture/affected = location.air.remove_ratio(volume/location.air.volume)
 		affected.temperature = temperature
 		affected.react()
 		temperature = affected.temperature
-		volume = affected.fuel_burnt*FIRE_GROWTH_RATE
+		volume = affected.reaction_results["fire"]*FIRE_GROWTH_RATE
 		location.assume_air(affected)
 
 	for(var/A in loc)
-		var/atom/item = A
-		if(item && item != src) // It's possible that the item is deleted in temperature_expose
-			item.fire_act(null, temperature, volume)
+		var/atom/AT = A
+		if(AT && AT != src) // It's possible that the item is deleted in temperature_expose
+			AT.fire_act(temperature, volume)
 	return 0
 
 
@@ -111,7 +112,7 @@
 		qdel(src)
 		return
 
-	if(!(location.air) || !location.air.gases["plasma"] || !location.air.gases["o2"] || location.air.gases["plasma"][MOLES] < 0.5 || location.air.gases["o2"][MOLES] < 0.5)
+	if(!(location.air) || !(location.air.gases[/datum/gas/plasma] || location.air.gases[/datum/gas/tritium]) || !location.air.gases[/datum/gas/oxygen] || (location.air.gases[/datum/gas/plasma][MOLES] < 0.5 && location.air.gases[/datum/gas/tritium][MOLES] < 0.5) || location.air.gases[/datum/gas/oxygen][MOLES] < 0.5)
 		qdel(src)
 		return
 
@@ -146,20 +147,17 @@
 	return 1
 
 /obj/effect/hotspot/Destroy()
-	SetLuminosity(0)
+	set_light(0)
 	SSair.hotspots -= src
+	var/turf/open/T = loc
+	if(istype(T) && T.active_hotspot == src)
+		T.active_hotspot = null
 	DestroyTurf()
-	if(istype(loc, /turf))
-		var/turf/open/T = loc
-		if(T.active_hotspot == src)
-			T.active_hotspot = null
 	loc = null
-	..()
-	return QDEL_HINT_PUTINPOOL
+	. = ..()
 
 /obj/effect/hotspot/proc/DestroyTurf()
-
-	if(istype(loc, /turf))
+	if(isturf(loc))
 		var/turf/T = loc
 		if(T.to_be_destroyed)
 			var/chance_of_deletion
@@ -176,4 +174,16 @@
 /obj/effect/hotspot/Crossed(mob/living/L)
 	..()
 	if(isliving(L))
-		L.fire_act()
+		L.fire_act(temperature, volume)
+
+/obj/effect/dummy/fire
+	name = "fire"
+	desc = "OWWWWWW. IT BURNS. Tell a coder if you're seeing this."
+	icon_state = "nothing"
+	light_color = LIGHT_COLOR_FIRE
+	light_range = LIGHT_RANGE_FIRE
+
+/obj/effect/dummy/fire/Initialize()
+	. = ..()
+	if(!isliving(loc))
+		qdel(src)

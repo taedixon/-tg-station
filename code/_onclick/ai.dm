@@ -14,13 +14,13 @@
 		if(call(client.click_intercept, "InterceptClickOn")(src, params, A))
 			return
 
-	if(control_disabled || stat) return
+	if(control_disabled || incapacitated())
+		return
 
 	if(ismob(A))
 		ai_actual_track(A)
 	else
 		A.move_camera_by_click()
-
 
 /mob/living/silicon/ai/ClickOn(var/atom/A, params)
 	if(world.time <= next_click)
@@ -31,7 +31,19 @@
 		if(call(client.click_intercept, "InterceptClickOn")(src, params, A))
 			return
 
-	if(control_disabled || stat)
+	if(control_disabled || incapacitated())
+		return
+
+	var/turf/pixel_turf = get_turf_pixel(A)
+	if(isnull(pixel_turf))
+		return
+	if(!can_see(A))
+		message_admins("[key_name_admin(src)] might be running a modified client! (failed can_see on AI click of [A]([ADMIN_COORDJMP(pixel_turf)]))")
+		var/message = "[key_name(src)] might be running a modified client! (failed can_see on AI click of [A]([COORD(pixel_turf)]))"
+		log_admin(message)
+		if(REALTIMEOFDAY >= chnotify + 9000)
+			chnotify = REALTIMEOFDAY
+			send2irc_adminless_only("NOCHEAT", message)
 		return
 
 	var/list/modifiers = params2list(params)
@@ -59,11 +71,11 @@
 
 	if(aicamera.in_camera_mode)
 		aicamera.camera_mode_off()
-		aicamera.captureimage(A, usr)
+		aicamera.captureimage(pixel_turf, usr)
 		return
 	if(waypoint_mode)
-		set_waypoint(A)
 		waypoint_mode = 0
+		set_waypoint(A)
 		return
 
 	/*
@@ -128,17 +140,17 @@
 		Topic("aiEnable=4", list("aiEnable"="4"), 1)// 1 meaning no window (consistency!)
 	else
 		Topic("aiDisable=4", list("aiDisable"="4"), 1)
-	return
+
 /obj/machinery/door/airlock/AIAltClick() // Eletrifies doors.
 	if(emagged)
 		return
 	if(!secondsElectrified)
-		// permenant shock
+		// permanent shock
 		Topic("aiEnable=6", list("aiEnable"="6"), 1) // 1 meaning no window (consistency!)
 	else
 		// disable/6 is not in Topic; disable/5 disables both temporary and permenant shock
 		Topic("aiDisable=5", list("aiDisable"="5"), 1)
-	return
+
 /obj/machinery/door/airlock/AIShiftClick()  // Opens and closes doors!
 	if(emagged)
 		return
@@ -146,7 +158,7 @@
 		Topic("aiEnable=7", list("aiEnable"="7"), 1) // 1 meaning no window (consistency!)
 	else
 		Topic("aiDisable=7", list("aiDisable"="7"), 1)
-	return
+
 /obj/machinery/door/airlock/AICtrlShiftClick()  // Sets/Unsets Emergency Access Override
 	if(emagged)
 		return
@@ -154,12 +166,12 @@
 		Topic("aiEnable=11", list("aiEnable"="11"), 1) // 1 meaning no window (consistency!)
 	else
 		Topic("aiDisable=11", list("aiDisable"="11"), 1)
-	return
 
 /* APC */
 /obj/machinery/power/apc/AICtrlClick() // turns off/on APCs.
-	toggle_breaker()
-	add_fingerprint(usr)
+	if(can_use(usr, 1))
+		toggle_breaker()
+		add_fingerprint(usr)
 
 /* AI Turrets */
 /obj/machinery/turretid/AIAltClick() //toggles lethal on turrets
@@ -174,4 +186,4 @@
 //
 
 /mob/living/silicon/ai/TurfAdjacent(var/turf/T)
-	return (cameranet && cameranet.checkTurfVis(T))
+	return (GLOB.cameranet && GLOB.cameranet.checkTurfVis(T))
