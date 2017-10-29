@@ -1,5 +1,5 @@
 ## Server name: This appears at the top of the screen in-game. Remove the # infront of SERVERNAME and replace 'tgstation' with the name of your choice
-# SERVERNAME memestation
+SERVERNAME memestation
 
 ## Station name: The name of the station as it is referred to in-game. If commented out, the game will generate a random name instead.
 # STATIONNAME Space Station 13
@@ -138,7 +138,7 @@ GUEST_BAN
 
 ## set a server location for world reboot. Don't include the byond://, just give the address and port.
 # Don't set this to the same server, BYOND will automatically restart players to the server when it has restarted.
-# SERVER ss13.example.com:2506
+SERVER gameserv.noxid.ca:7890
 
 ## forum address
 # FORUMURL http://cavestory.org/forums
@@ -254,7 +254,7 @@ NOTIFY_NEW_PLAYER_AGE 0
 
 ## GENERATE_MINIMAPS
 ## Generating minimaps(For crew monitor) is slow and bogs down testing, so its disabled by default and must be enabled by uncommenting this config if you are running a production server.
-#GENERATE_MINIMAPS
+GENERATE_MINIMAPS
 
 ## CLIENT VERSION CONTROL
 ## This allows you to configure the minimum required client version, as well as a warning version, and message for both.
